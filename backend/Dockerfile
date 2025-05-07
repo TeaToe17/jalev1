@@ -7,6 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN python manage.py collectstatic --noinput
-
 CMD ["sh", "-c", "daphne backend.asgi:application -b 0.0.0.0 -p 8000"]
