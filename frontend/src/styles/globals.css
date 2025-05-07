@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .notice {
+    @apply bg-yellow-100 text-yellow-800 border border-yellow-300 rounded-xl p-4 max-w-xl mx-auto shadow;
+  }
+
+  .notice h2 {
+    @apply text-lg font-semibold mb-2;
+  }
+
+  .notice ul {
+    @apply list-disc pl-5;
+  }
+
+  .notice p {
+    @apply mb-2;
+  }
+}
