@@ -7,12 +7,15 @@ asgiref==3.8.1
 attrs==25.3.0
 autobahn==24.4.2
 Automat==24.8.1
+beautifulsoup4==4.13.4
 billiard==4.2.1
 CacheControl==0.14.2
 cachetools==5.5.2
+celery==5.4.0
 certifi==2025.1.31
 cffi==1.17.1
 channels==4.1.0
+channels_postgres==1.1.2
 channels_redis==4.2.1
 charset-normalizer==3.4.1
 click==8.1.8
@@ -23,7 +26,9 @@ colorama==0.4.6
 constantly==23.10.4
 cryptography==44.0.2
 daphne==4.1.2
+dj-database-url==2.3.0
 Django==5.1.2
+django-celery-results==2.5.1
 django-cors-headers==4.5.0
 django-redis==5.4.0
 django-webpush==0.3.6
@@ -33,6 +38,7 @@ filelock==3.18.0
 firebase-admin==6.7.0
 frozenlist==1.5.0
 fsspec==2025.3.2
+gdown==5.2.0
 google-api-core==2.24.2
 google-api-python-client==2.166.0
 google-auth==2.38.0
@@ -71,6 +77,9 @@ propcache==0.3.0
 proto-plus==1.26.1
 protobuf==5.29.4
 psutil==7.0.0
+psycopg==3.2.7
+psycopg-pool==3.2.6
+psycopg2-binary==2.9.10
 py-vapid==1.9.2
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
@@ -78,6 +87,7 @@ pycparser==2.22
 PyJWT==2.9.0
 pyOpenSSL==25.0.0
 pyparsing==3.2.3
+PySocks==1.7.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 pywebpush==2.0.3
@@ -90,6 +100,7 @@ safetensors==0.5.3
 service-identity==24.2.0
 setuptools==78.1.0
 six==1.17.0
+soupsieve==2.7
 sqlparse==0.5.1
 sympy==1.13.1
 tokenizers==0.21.1
@@ -106,8 +117,6 @@ uritemplate==4.1.1
 urllib3==2.3.0
 vine==5.1.0
 wcwidth==0.2.13
+whitenoise==6.9.0
 yarl==1.18.3
 zope.interface==7.2
-psycopg2-binary
-dj-database-url   
-gdown
