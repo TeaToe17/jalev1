@@ -1,0 +1,98 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+node_modules/
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+.next/
+
+dist/
+*.log
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# env files (can opt-in for commiting if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+certificates
+
+env/
+.env
+
+.env
+*.env
+env/
+
+# Ignore service key JSON
+service_key.json
+
+# Ignore node_modules (frontend and backend)
+node_modules/
+
+# Ignore log files
+*.log
+
+# Ignore build and cache directories
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# Certificates and other sensitive data
+frontend/certificates/
+
+frontend/node_modules/@next/swc-win32-x64-msvc/next-swc.win32-x64-msvc.node
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+*.sqlite3
+media/
+staticfiles/
+
+/media/*
+/model/results/*
+/model/results_2/*
+/model/results_2/*
+/model/trained_model_2/*
+/backend/model/trained_model_2/*
+backend/model/trained_model_2/*
+/model/trained_model_2/
+/backend/model/trained_model_2/
+backend/model/trained_model_2/
+
+*.sqlite3
+*.rdb
