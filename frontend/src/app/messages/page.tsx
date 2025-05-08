@@ -120,7 +120,7 @@ const Messages = () => {
 
   if (!IsUser) return <div>Login to see your Messages</div>;
   return (
-    <div className="bg-[#f8f9fa] text-[#333]" >
+    <div className="bg-[#f8f9fa] text-[#333] min-h-screen" >
       {chats &&
         chats.map((chat) => (
           <div

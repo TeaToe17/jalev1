@@ -39,7 +39,6 @@ CSRF_TRUSTED_ORIGINS = [
     "https://jalev1.onrender.com",
 ]
 
-
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES":(
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -183,23 +182,23 @@ DATABASES = {
 #     },
 # }
 
-# CHANNEL_LAYERS = {
-#     "default": {
-#         "BACKEND": "channels_redis.core.RedisChannelLayer",
-#         "CONFIG": {
-#             "hosts": [os.getenv("UPSTASH_REDIS_URL")],
-#         },
-#     },
-# }
-
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [os.getenv("REDIS_URL")],
+            "hosts": [os.getenv("UPSTASH_REDIS_URL")],
         },
     },
 }
+
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels_redis.core.RedisChannelLayer",
+#         "CONFIG": {
+#             "hosts": [os.getenv("REDIS_URL")],
+#         },
+#     },
+# }
 
 # CHANNEL_LAYERS = {
 #     "default": {

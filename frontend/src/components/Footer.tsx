@@ -3,7 +3,7 @@ import Link from "next/link";
 
 function Footer() {
   return (
-    <div>
+    <div className="absolute  bottom-0 left-0 right-0">
       <footer
         className="relative bg-cover bg-center text-[#1c2b3a] px-4 py-8 mt-auto"
         style={{
