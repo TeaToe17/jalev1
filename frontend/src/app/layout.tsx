@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from "react";
 
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import "@/styles/globals.css";
 import { AppWrapper } from "@/context";
 
@@ -16,6 +17,7 @@ interface RootLayoutProps {
 
 const RootLayout = ({ children }: RootLayoutProps) => (
   <html lang="en">
+    
     <body>
       <div className="main">
         <div className="gradient" />
@@ -24,6 +26,7 @@ const RootLayout = ({ children }: RootLayoutProps) => (
         <AppWrapper>
           <Navbar />
           {children}
+          <Footer/>
         </AppWrapper>
       </main>
     </body>

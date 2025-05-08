@@ -16,7 +16,7 @@ interface Productprops {
 
 const Product = ({ product }: Productprops) => {
   return (
-    <div className="relative rounded-lg overflow-hidden shadow-sm hover:shadow-md transition bg-white">
+    <div className="relative rounded-lg overflow-hidden shadow-sm hover:shadow-md transition bg-white flex flex-col items-center justify-center">
       {/* SOLD overlay */}
       {product.sold && (
         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-60 z-10">
@@ -26,7 +26,11 @@ const Product = ({ product }: Productprops) => {
 
       {/* Image */}
       <Image
-        src={typeof product.image === "string" ? product.image : URL.createObjectURL(product.image)}
+        src={
+          typeof product.image === "string"
+            ? product.image
+            : URL.createObjectURL(product.image)
+        }
         alt={`Image of ${product.name}`}
         width={150}
         height={150}
@@ -34,9 +38,11 @@ const Product = ({ product }: Productprops) => {
       />
 
       {/* Product Info */}
-      <div className="px-4 py-3">
+      <div className=" py-3 text-center">
         <h3 className="text-lg font-semibold truncate">{product.name}</h3>
-        <p className="text-[#EF4444] font-bold mt-1">₦{product.price.toLocaleString()}</p>
+        <p className="text-[#EF4444] font-bold mt-1">
+          ₦{product.price.toLocaleString()}
+        </p>
       </div>
     </div>
   );

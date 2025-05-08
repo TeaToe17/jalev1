@@ -44,39 +44,41 @@ const Navbar = () => {
   }, [globalMessages]);
 
   return (
-    <div className="w-full flex flex-col md:flex-row justify-between items-center bg-[#fcecd8] text-white px-4 py-3 shadow-md">
-      <div className="text-xl font-bold">
-        <Link href="/">
-          <img src="/jale_logo.png" alt="Jàle Logo" className="w-10 h-10" />
-        </Link>
+    <>
+      <div className="w-full flex flex-col md:flex-row justify-between items-center bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] text-white px-4 py-3 shadow-md">
+        <div className="text-xl font-bold">
+          <Link href="/">
+            <img src="/jale logo.png" alt="Jàle Logo" className="w-10 h-10" />
+          </Link>
+        </div>
+        <ul className="flex flex-col md:flex-row gap-4 text-sm font-medium mt-2 md:mt-0">
+          <li>
+            <Link href="/">Home</Link>
+          </li>
+          <li>
+            <Link href="/requests">Requests</Link>
+          </li>
+          <li>
+            <Link href="/myproducts">My Products</Link>
+          </li>
+          <li>
+            <button onClick={() => router.push("/messages")}>Inbox</button>
+          </li>
+          <li>
+            <button onClick={() => router.push("/profile")}>Profile</button>
+          </li>
+          <li>
+            <button onClick={() => router.push("/login")}>Login</button>
+          </li>
+          <li>
+            <button onClick={() => router.push("/register")}>Register</button>
+          </li>
+          <li>
+            <button onClick={logout}>Logout</button>
+          </li>
+        </ul>
       </div>
-      <ul className="flex flex-col md:flex-row gap-4 text-sm font-medium mt-2 md:mt-0">
-        <li>
-          <Link href="/">Home</Link>
-        </li>
-        <li>
-          <Link href="/requests">Requests</Link>
-        </li>
-        <li>
-          <Link href="/myproducts">My Products</Link>
-        </li>
-        <li>
-          <button onClick={() => router.push("/messages")}>Inbox</button>
-        </li>
-        <li>
-          <button onClick={() => router.push("/profile")}>Profile</button>
-        </li>
-        <li>
-          <button onClick={() => router.push("/login")}>Login</button>
-        </li>
-        <li>
-          <button onClick={() => router.push("/register")}>Register</button>
-        </li>
-        <li>
-          <button onClick={logout}>Logout</button>
-        </li>
-      </ul>
-    </div>
+    </>
   );
 };
 

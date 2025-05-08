@@ -58,7 +58,7 @@ function Home() {
   return (
     <>
       <Head>
-        <title>Jale, Market wey you fit price</title>
+        <title>Jàle, Market wey you fit price</title>
         <meta
           name="description"
           content="Buy and sell fairly used and new BOOKS"
@@ -80,19 +80,33 @@ function Home() {
           content="Buy and sell fairly used and new BOOKS."
         />
         <meta name="twitter:image" content={book.src} />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;600;700&display=swap"
+          rel="stylesheet"
+        />
       </Head>
 
-      <main className="px-4 sm:px-8 md:px-16 lg:px-24 py-8 bg-[#f8f9fa] text-[#333] min-h-screen">
+      <main className="px-4 sm:px-8 md:px-16 lg:px-24 py-8 bg-[#f8f9fa] text-[#1c2b3a] font-urbanist min-h-screen">
         <div className="text-center mb-12">
-          <Image src="/jale logo.png" alt="Jàle Logo" width={80} height={80} className="mx-auto" />
-          <h1 className="text-3xl md:text-5xl font-bold mt-4">Welcome to Jale</h1>
-          <p className="text-base md:text-lg mt-2 text-gray-600">
+          <Image
+            src="/jale logo.png"
+            alt="Jàle Logo"
+            width={80}
+            height={80}
+            className="mx-auto"
+          />
+          <h1 className="text-3xl md:text-5xl font-bold mt-4">
+            Welcome to Jàle
+          </h1>
+          <p className="text-base md:text-lg mt-2 text-[#1c2b3a] opacity-70">
             Market wey you fit Price...
           </p>
         </div>
 
         <section>
-          <h2 className="text-xl md:text-2xl font-semibold mb-6">Available Products</h2>
+          <h2 className="text-xl md:text-2xl font-semibold mb-6">
+            Available Products
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {products &&
               products.map((product) => (
