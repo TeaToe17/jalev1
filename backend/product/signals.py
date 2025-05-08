@@ -44,6 +44,7 @@ def notify_users_on_new_product(sender, instance, action, **kwargs):
             message = f"Just in! \n {instance.name}"
             user_Id = user.id
             url = f"https://localhost:3000/product/{instance.id}"
+            
             send_email(user.email, subject, message)
             browser_notify(user_Id, subject2, message, str(url))
 

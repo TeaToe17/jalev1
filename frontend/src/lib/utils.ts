@@ -147,7 +147,8 @@ export function useGlobalListener() {
       const userId = decoded.user_id;
 
       ws = new WebSocket(
-        `ws://localhost:8000/ws/global_chat/${userId}/?token=${token}`
+        // `ws://localhost:8000/ws/global_chat/${userId}/?token=${token}`
+        `wss://jalev1.onrender.com/ws/global_chat/${userId}/?token=${token}`
       );
 
       ws.onopen = () => {
@@ -193,7 +194,8 @@ export function connectToChat(receiverId: number, productId: number = 0, ownerId
 
   console.log(productId);
   const ws = new WebSocket(
-    productId ? `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}` : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`
+    // productId ? `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}` : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`
+    productId ? `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}` : `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}`
   );
 
   ws.onopen = () => {
