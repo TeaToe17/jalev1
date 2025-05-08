@@ -13,10 +13,6 @@ import Image from "next/image";
 
 // Define the TypeScript interface for a single book
 
-type HomeProps = NextPage & {
-  fcmtoken?: string;
-};
-
 interface Product {
   id: number;
   name: string;
@@ -28,7 +24,7 @@ interface Product {
   categories: { id: number; name: string }[];
 }
 
-function Home({ fcmtoken }: HomeProps) {
+function Home() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
