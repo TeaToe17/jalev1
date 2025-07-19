@@ -7,6 +7,12 @@ import threading
 from .tasks import send_email, browser_notify
 from .models import Product
 from user.models import CustomUser
+from user.models import Message
+import time
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 @receiver(m2m_changed, sender=Product.categories.through)
 def notify_users_on_new_product(sender, instance, action, **kwargs):

@@ -15,8 +15,7 @@ import {
 import { connectToChat, fetchUser, LoggedIn } from "@/lib/utils";
 import api from "@/lib/api";
 import { useAppContext } from "@/context";
-import { useRouter } from "next/navigation";
-
+import { useRouter, usePathname } from "next/navigation";
 interface ChatProps {
   receiverId: number;
 }
@@ -51,6 +50,7 @@ interface Message {
 
 const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   const router = useRouter();
+  const pathname = usePathname()
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -225,7 +225,9 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     }
   }, [messages]);
 
+  
   useEffect(() => {
+    if (!pathname.startsWith(`/chat/${receiverId}`)) return;
     if (!messages.length || !currentUser?.id) return;
 
     const last_msg = messages.at(-1);
@@ -233,8 +235,11 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     const currentUserId = Number(currentUser?.id);
 
     // Only mark as read if the last message was sent by someone else
-    if (lastSenderId && currentUserId && lastSenderId !== currentUserId) {
+    console.log(lastSenderId)
+    console.log(currentUserId)
+    if (lastSenderId && currentUserId && Number(lastSenderId) !== Number(currentUserId)) {
       // Mark messages as read on backend
+      console.log("i affected")
       api
         .post(`user/update_messages/${receiverId}/`)
         .then(() => {

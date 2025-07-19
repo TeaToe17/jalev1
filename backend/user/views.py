@@ -13,7 +13,9 @@ from rest_framework.parsers import MultiPartParser
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from django.http import JsonResponse
-
+import time
+import threading
+from send_email import send_email
 
 from .serializers import CustomTokenObtainPairSerializer, PermissionTokenSerializer, MessageSerializer, UserSerializer, ChatPreviewSerializer, PasswordResetSerializer, MessageBooleanSerializer
 from .models import UserFCMToken, Message, CustomUser, ChatPreview
@@ -116,6 +118,25 @@ def send_message_push_notification(request):
 
         # This task is loacted in product.task because its also used for Products
         browser_notify(user_Id, subject, message, url)
+
+        # Run this after save in a separate thread
+        def delayed_unread_check():
+            time.sleep(5 * 60)  # wait for 5 minutes
+            try:
+                last_message = Message.objects.filter(
+                    Q( content=message, receiver_id = user_Id ,read=False ) 
+                ).order_by("-timestamp").first()
+                print(last_message)
+                if last_message:
+                    receiver = last_message.receiver
+                    if receiver:
+                        send_email(receiver.email, "You Have an Unread Message", last_message.content)
+            except Message.DoesNotExist:
+                pass
+
+        thread = threading.Thread(target=delayed_unread_check)
+        thread.start()
+        
         return Response({'status': 'Notification task queued'})
     except Exception as e:
         return Response({'error': str(e)}, status=400)
@@ -167,6 +188,7 @@ class UpdatedMessagesView(APIView):
 
         updated_count = 0
         for message in messages:
+            print("It was me")
             message.read = True
             message.save()  # This triggers signals
             updated_count += 1

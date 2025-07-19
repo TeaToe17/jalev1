@@ -5,7 +5,6 @@ importScripts(
   "https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"
 );
 
-const firebase = window.firebase; // Declare the firebase variable
 const firebaseConfig = {
   apiKey: "AIzaSyD5LN2IpcCY8RpwCVRxeV8X9trBWAnZGgg",
   authDomain: "bookit-83750.firebaseapp.com",

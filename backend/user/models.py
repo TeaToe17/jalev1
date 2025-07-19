@@ -1,5 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+import time
+import send_email
+import threading
+
 
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
@@ -30,6 +34,33 @@ class Message(models.Model):
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
     read = models.BooleanField(default=False, blank=True)
+
+
+    def save(self, *args, **kwargs):
+        print("Save method triggered", self.content)
+        if self._state.adding:  # only on create
+            self.read = False
+        super().save(*args, **kwargs)
+
+        # # Run this after save in a separate thread
+        # def delayed_unread_check():
+        #     time.sleep(1 * 60)  # sleep for 2 minutes
+        #     try:
+        #         print("before read")
+        #         saved_obj = self.__class__.objects.get(pk=self.pk)
+        #         print(saved_obj.read)
+
+        #         if not saved_obj.read:
+        #             print("after read")
+        #             receiver = saved_obj.receiver
+        #             if saved_obj.receiver and saved_obj.content:
+        #                 send_email(receiver.email, "You Have an Unread Message", saved_obj.content)
+        #     except Message.DoesNotExist:
+        #         pass
+
+        # thread = threading.Thread(target=delayed_unread_check)
+        # thread.start()
+
 
 class ChatPreview(models.Model):
     sender = models.ForeignKey("user.CustomUser", on_delete=models.CASCADE, related_name="sender_previews")

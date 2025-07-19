@@ -59,7 +59,7 @@ class ChatConsumer(WebsocketConsumer):
 
     def save_message(self, sender_id, receiver_id, content):
         if content !=self.warning:
-            Message.objects.create(sender_id=sender_id, receiver_id=receiver_id, content=content)
+            Message.objects.create(sender_id=sender_id, receiver_id=receiver_id, content=content, read=False)
 
     def update_chat_preview(self, sender_id, receiver_id, content):
         if content != self.warning:

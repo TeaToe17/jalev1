@@ -13,7 +13,6 @@ from .models import Product, Category
 class ProductCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ProductSerializer
-    queryset = Product.objects.all()
 
     def create(self, *args, **kwargs):
         try:
@@ -22,7 +21,7 @@ class ProductCreateView(generics.CreateAPIView):
             serializer.save(owner=self.request.user)
 
             return Response(serializer.data, status=201)
-        except Exception as e:
+        except Exception as e:  
             return Response({"error": str(e)}, status=400)
         
 class ProductListView(generics.ListAPIView):
