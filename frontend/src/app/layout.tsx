@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Join Our Amazing Platform - Special Invitation",
     description:
-      "🎉 Now in UNILAG! Buy • Sell • Negotiate 📚💸 Got old textbooks, past questions, or unused items? Turn them into cash or score sweet deals on new & used stuff — from Education to Fashion and everything in between! 🎒👗💬 Negotiate when cash is tight. It’s your campus marketplace! 🔄🤝",
+      "🎉 Now in UNILAG! Buy • Sell • Negotiate 📚💸 Got old TEXTBOOKS, PAST QUESTONS, or ANYTHING valuable, USED or NEW? Hurry! Turn them into CASH or even make REQUESTS for products you need — from EDUCATION to FASHION and everything in between! 🎒👗💬 NEGOTIATE when cash is tight. It’s your campus marketplace! 🔄🤝",
     images: [
       {
         url: "https://jale.vercel.app/jalecover.jpg",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Join Our Amazing Platform - Buy. Sell. Negotiate. Flex.",
     description:
-      "🎉 Now in UNILAG! Buy • Sell • Negotiate 📚💸 Got old textbooks, past questions, or unused items? Turn them into cash or score sweet deals on new & used stuff — from Education to Fashion and everything in between! 🎒👗💬 Negotiate when cash is tight. It’s your campus marketplace! 🔄🤝",
+      "🎉 Now in UNILAG! Buy • Sell • Negotiate 📚💸 Got old TEXTBOOKS, PAST QUESTONS, or ANYTHING valuable, USED or NEW? Hurry! Turn them into CASH or even make REQUESTS for products you need — from EDUCATION to FASHION and everything in between! 🎒👗💬 NEGOTIATE when cash is tight. It’s your campus marketplace! 🔄🤝",
     images: ["https://jale.vercel.app/jalecover.jpg"],
   },
 };
