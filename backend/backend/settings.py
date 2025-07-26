@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'user.apps.UserConfig',
+    # 'user',
     'request',
     'order',
     'product',

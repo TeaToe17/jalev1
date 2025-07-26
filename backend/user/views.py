@@ -105,6 +105,8 @@ class ListChatPreview(generics.ListAPIView):
             Q(sender=self.request.user) | Q(receiver=self.request.user)       
             ).distinct()
 
+from django.db.models.signals import post_save
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def send_message_push_notification(request):
@@ -118,24 +120,7 @@ def send_message_push_notification(request):
 
         # This task is loacted in product.task because its also used for Products
         browser_notify(user_Id, subject, message, url)
-
-        # Run this after save in a separate thread
-        def delayed_unread_check():
-            time.sleep(5 * 60)  # wait for 5 minutes
-            try:
-                last_message = Message.objects.filter(
-                    Q( content=message, receiver_id = user_Id ,read=False ) 
-                ).order_by("-timestamp").first()
-                print(last_message)
-                if last_message:
-                    receiver = last_message.receiver
-                    if receiver:
-                        send_email(receiver.email, "You Have an Unread Message", last_message.content)
-            except Message.DoesNotExist:
-                pass
-
-        thread = threading.Thread(target=delayed_unread_check)
-        thread.start()
+        print("Signals", post_save.receivers)
         
         return Response({'status': 'Notification task queued'})
     except Exception as e:
@@ -194,6 +179,35 @@ class UpdatedMessagesView(APIView):
             updated_count += 1
 
         return Response({"updated_count": updated_count}, status=200)
+    
+class MessageRemindView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        incoming_message = request.data.get("message")
+        receiver_id = request.data.get("receiver_id")
+
+        def delayed_email_check(incoming_message, receiver_id):
+            time.sleep(3 * 60)
+            try:
+                receiver = CustomUser.objects.get(id=receiver_id)
+                msg = Message.objects.filter(
+                    content=incoming_message,
+                    receiver_id=receiver.id
+                ).order_by("-timestamp").first()
+
+                if msg and not msg.read:
+                    send_email(receiver.email, "You have an unread message", 
+                               f"""{msg.content}
+                                    Check here: https://jale.vercel.app/
+                                """)
+            except Exception as e:
+                print(f"Error in email sending: {e}")
+
+        threading.Thread(target=delayed_email_check, args=(incoming_message, receiver_id)).start()
+
+        return Response({"message": "Reminder scheduled"}, status=202)
+
 
 def cron_view(request):
     return JsonResponse({'status': 'ok'})

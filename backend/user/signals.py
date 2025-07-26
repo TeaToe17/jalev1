@@ -1,7 +1,7 @@
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from django.db.models import Q
-from .models import Message, ChatPreview
+from user.models import Message, ChatPreview
 import time 
 import logging
 import threading
@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=Message)
 def update_chat_preview(sender, instance, created, **kwargs):
-    print("CP")
     if not created and instance.read:
         user1 = instance.sender
         user2 = instance.receiver  
@@ -30,3 +29,6 @@ def update_chat_preview(sender, instance, created, **kwargs):
             print("ChatPreview not found.")
         except Exception as e:
             print("Unexpected error:", e)
+
+    
+    

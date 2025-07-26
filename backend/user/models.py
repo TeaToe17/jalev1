@@ -15,7 +15,6 @@ class CustomUser(AbstractUser):
     is_blacklisted = models.BooleanField(default=False)
     is_suspended = models.BooleanField(default=False)    
     referral_points = models.IntegerField(default=0, blank=True)
-    
 
     def __str__(self):
         return f"{self.id}-{self.username}"
@@ -37,7 +36,6 @@ class Message(models.Model):
 
 
     def save(self, *args, **kwargs):
-        print("Save method triggered", self.content)
         if self._state.adding:  # only on create
             self.read = False
         super().save(*args, **kwargs)

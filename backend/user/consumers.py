@@ -59,35 +59,37 @@ class ChatConsumer(WebsocketConsumer):
 
     def save_message(self, sender_id, receiver_id, content):
         if content !=self.warning:
-            Message.objects.create(sender_id=sender_id, receiver_id=receiver_id, content=content, read=False)
+            if sender_id != receiver_id:
+                Message.objects.create(sender_id=sender_id, receiver_id=receiver_id, content=content, read=False)
 
     def update_chat_preview(self, sender_id, receiver_id, content):
         if content != self.warning:
             # Always order sender and receiver so smaller id is first for consistency in chat room name , these are not always the actual sender or receiver.
             first_user_id = min(sender_id, receiver_id)
             second_user_id = max(sender_id, receiver_id)
-            try:
-                ChatPreview.objects.update_or_create(
-                    sender_id=first_user_id,
-                    receiver_id=second_user_id,
-                    defaults={
-                        'latest_message': content,
-                        'time': localtime(now()),
-                        'actual_sender_id':sender_id,
-                        'actual_receiver_id':receiver_id,
-                    }
-                )
-            except Exception as e:
-                print("ChatPreview save error:", e)
-            try:
-                chatpreview = ChatPreview.objects.get(
-                    Q(sender_id=sender_id, receiver_id=receiver_id) |
-                    Q(sender_id=receiver_id, receiver_id=sender_id)
-                )
-                chatpreview.unread = F("unread") + 1
-                chatpreview.save()
-            except ChatPreview.DoesNotExist:
-                pass
+            if first_user_id != second_user_id:
+                try:
+                    ChatPreview.objects.update_or_create(
+                        sender_id=first_user_id,
+                        receiver_id=second_user_id,
+                        defaults={
+                            'latest_message': content,
+                            'time': localtime(now()),
+                            'actual_sender_id':sender_id,
+                            'actual_receiver_id':receiver_id,
+                        }
+                    )
+                except Exception as e:
+                    print("ChatPreview save error:", e)
+                try:
+                    chatpreview = ChatPreview.objects.get(
+                        Q(sender_id=sender_id, receiver_id=receiver_id) |
+                        Q(sender_id=receiver_id, receiver_id=sender_id)
+                    )
+                    chatpreview.unread = F("unread") + 1
+                    chatpreview.save()
+                except ChatPreview.DoesNotExist:
+                    pass
 
     # For personal chat message
     def chat_message_personal(self, event):

@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
-from django.db.models import Case, When, Value, DateTimeField
+from django.db.models import Case, When, Value, DateTimeField, IntegerField
 
 from .serializers import ProductSerializer, CategorySerialzer
 from .models import Product, Category
@@ -34,10 +34,15 @@ class ProductListView(generics.ListAPIView):
         queryset = Product.objects.annotate(
             effective_sort_date=Case(
                 When(is_sticky=True, then='sticky_timestamp'),
-                default='created',  # Removed the '-' here; sorting is handled below
+                default='created',
                 output_field=DateTimeField()
+            ),
+            is_available=Case(
+                When(sold=False, stock__gt=0, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
             )
-        ).order_by('-is_sticky', '-effective_sort_date')
+        ).order_by('-is_available', '-is_sticky', '-effective_sort_date')
 
         url_id = self.kwargs.get("id")
         product_id = self.request.GET.get("product")

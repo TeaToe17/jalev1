@@ -12,7 +12,7 @@ import {
   X,
   Brain,
 } from "lucide-react";
-import { connectToChat, fetchUser, LoggedIn } from "@/lib/utils";
+import { connectToChat, fetchProducts, fetchUser, LoggedIn } from "@/lib/utils";
 import api from "@/lib/api";
 import { useAppContext } from "@/context";
 import { useRouter, usePathname } from "next/navigation";
@@ -25,6 +25,21 @@ interface ApiMessage {
   content: string;
   sender: number | string;
   timestamp: string;
+}
+
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+  imagefile: File | string;
+  image: string;
+  stock: number;
+  used: boolean;
+  sold: boolean;
+  negotiable: boolean;
+  extra_field: {};
+  categories: number[];
+  owner: number;
 }
 
 type CustomUser = {
@@ -50,7 +65,7 @@ interface Message {
 
 const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   const router = useRouter();
-  const pathname = usePathname()
+  const pathname = usePathname();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -68,6 +83,37 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
   const [currentUser, setCurrentUser] = useState<CustomUser | null>(null);
   const [showDiv, setShowDiv] = useState(true);
+  const [lastMessage, setLastMessage] = useState<string>("");
+  const [productDetails, setProductDetails] = useState({
+    productImage: "",
+    productName: "",
+    productPrice: 0,
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedProductId = localStorage.getItem("productId");
+      if (storedProductId) {
+        const loadProduct = async () => {
+          const res: Product[] = await fetchProducts();
+          console.log(res);
+          if (res) {
+            const product = res.find(
+              (item) => item.id === Number(storedProductId)
+            );
+            if (product) {
+              setProductDetails({
+                productImage: product.image,
+                productName: product.name,
+                productPrice: product.price,
+              });
+            }
+          }
+        };
+        loadProduct();
+      }
+    }
+  }, [messages]);
 
   // Load product and owner IDs from localStorage
   useEffect(() => {
@@ -80,6 +126,8 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
         setOwnerId(storedOwnerId);
       }
     }
+
+    console.log(productDetails);
 
     return () => {
       // Always remove as users might leave midway and comback to negotiate on a different product with the Other user being the owner this time.
@@ -118,6 +166,67 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     }
   };
 
+  const SendReminder = (receiverId: number, message: string) => {
+    api
+      .post("user/message_reminder/", {
+        message,
+        receiver_id: receiverId,
+      })
+      .catch((err) => {
+        console.error("Non-blocking request failed", err);
+      });
+  };
+
+  // This function triggers after every send of
+  // message but only make stghe backend call if msg nt read after some minutes
+
+  // BETTER TO WAIT TO MINUTES AND CONFIRM CERTAIN CONSITIONS BEFORE SENDING REMINDER REQUESTS TO THE BACKEND.
+  // AS OPPOSED TO REMINDING ON EVERY SEND - POOR , BACKEND HEAVY , REQUESTS WILL ALSO STILL GET MADE FOR MSGS THAT MIOGHHT ALREADY
+  // EVEN BEEN READ OR REPLIED TO.
+  useEffect(() => {
+    if (lastMessage == "") return;
+
+    const last_msg = messages.at(-1);
+    const lastSenderId = Number(last_msg?.sender_id);
+    const currentUserId = Number(currentUser?.id);
+
+    if (receiverId) {
+      localStorage.setItem("receiverId", JSON.stringify(receiverId));
+      localStorage.setItem("message", JSON.stringify(lastMessage));
+    }
+
+    let reminderSent = false;
+
+    const safeSendReminder = () => {
+      if (!reminderSent) {
+        SendReminder(receiverId, lastMessage);
+        reminderSent = true;
+      }
+    };
+
+    const timeout = setTimeout(() => {
+      if (
+        lastSenderId &&
+        currentUserId &&
+        Number(lastSenderId) === Number(currentUserId)
+      ) {
+        safeSendReminder();
+      }
+    }, 1 * 60 * 1000);
+
+    const handler = () => {
+      safeSendReminder();
+    };
+
+    window.addEventListener("beforeunload", handler);
+
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener("beforeunload", handler);
+      safeSendReminder(); // for soft route navigation
+    };
+  }, [lastMessage]);
+
   // Connect to WebSocket and fetch history
   useEffect(() => {
     if (!receiverId) return;
@@ -126,7 +235,6 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
 
     let socket: WebSocket | null = null;
 
-    console.log(currentProduct);
     try {
       socket = currentProduct
         ? connectToChat(receiverId, currentProduct.id, currentProduct.owner)
@@ -225,7 +333,6 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     }
   }, [messages]);
 
-  
   useEffect(() => {
     if (!pathname.startsWith(`/chat/${receiverId}`)) return;
     if (!messages.length || !currentUser?.id) return;
@@ -235,11 +342,12 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     const currentUserId = Number(currentUser?.id);
 
     // Only mark as read if the last message was sent by someone else
-    console.log(lastSenderId)
-    console.log(currentUserId)
-    if (lastSenderId && currentUserId && Number(lastSenderId) !== Number(currentUserId)) {
+    if (
+      lastSenderId &&
+      currentUserId &&
+      Number(lastSenderId) !== Number(currentUserId)
+    ) {
       // Mark messages as read on backend
-      console.log("i affected")
       api
         .post(`user/update_messages/${receiverId}/`)
         .then(() => {
@@ -251,7 +359,6 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
         });
     }
   }, [messages, currentUser?.id, receiverId, setMessageTrigger]);
-
 
   // Scroll to bottom when messages or pending messages change
   useEffect(() => {
@@ -374,6 +481,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
 
         // Send the actual message
         ws.send(JSON.stringify({ message: input }));
+        setLastMessage(input);
         setInput("");
 
         // Simulate analysis time (optional - for consistent UX)
@@ -412,15 +520,6 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     if (!LoggedIn) router.replace("/login");
   }, [LoggedIn, router]);
 
-  // useEffect(() => {
-  //   const timer = setTimeout(() => {
-  //     setShowDiv(false);
-  //   }, 8000); // Show for 8 seconds
-
-  //   return () => clearTimeout(timer); // Cleanup on unmount
-  // }, []);
-
-  /* ---------- render ---------- */
   if (!LoggedIn) {
     // You can show a placeholder while the redirect happens
     return (
@@ -660,6 +759,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
         )}
       </div>
       {/* Product order panel for sellers */}
+
       {isProductOwner && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -667,12 +767,33 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
           transition={{ duration: 0.3 }}
           className="bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a]/90 p-4 rounded-lg mb-4 shadow-md"
         >
+          {/* Product Details Section */}
+          <div className="mb-4 p-3 bg-white/10 rounded-md backdrop-blur-sm">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              {productDetails.productImage && (
+                <img
+                  src={productDetails.productImage || "/placeholder.svg"}
+                  alt={productDetails.productName}
+                  className="w-16 h-16 object-cover rounded-md border border-white/30"
+                />
+              )}
+              <div className="flex-1">
+                <h3 className="text-white font-semibold text-lg">
+                  {productDetails.productName || "Product Name"}
+                </h3>
+                <p className="text-white/80 text-sm">
+                  Price: ${productDetails.productPrice || 0}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Authorization Section */}
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <div className="flex items-center gap-2 text-white">
               <ShoppingBag size={20} />
               <span className="font-medium">Authorize Order</span>
             </div>
-
             <div className="flex-1 flex flex-col sm:flex-row gap-3">
               <input
                 type="number"
@@ -681,7 +802,6 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
                 onChange={(e) => setAgreedPrice(e.target.value)}
                 className="px-4 py-2 rounded-md border border-white/30 bg-white/10 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 w-full sm:w-auto"
               />
-
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -706,10 +826,13 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
                 )}
               </motion.button>
             </div>
-            <p>Payout: {Number(agreedPrice) * 0.9} </p>
+            <p className="text-white font-medium">
+              Payout: ${Number(agreedPrice) * 0.9}
+            </p>
           </div>
         </motion.div>
       )}
+
       <AnimatePresence>
         <>
           {error == "This input is not allowed." && (

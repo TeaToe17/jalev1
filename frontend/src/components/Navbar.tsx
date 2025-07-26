@@ -150,8 +150,6 @@ const Navbar = () => {
 
   // Update message count when chats change
   useEffect(() => {
-    console.log(chats);
-    console.log(currentUser);
     if (chats.length < 1 || !currentUser) return;
 
     const user_id = Number(currentUser.id);
@@ -261,7 +259,7 @@ const Navbar = () => {
   );
 
   return (
-    <nav className="w-full bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] text-white px-4 py-3 shadow-md">
+    <nav className="sticky top-0 z-50 w-full bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] text-white px-4 py-3 shadow-md">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         {/* Logo */}
         <Link href="/" className="z-10 ml-5">
@@ -305,7 +303,7 @@ const Navbar = () => {
                   <Menu className="w-6 h-6" />
                   {messageCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold px-1 rounded-full">
-                      {messageCount}
+                      {messageCount+cartCount}
                     </span>
                   )}
                 </span>

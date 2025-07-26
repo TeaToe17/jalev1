@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   description:
     "Level up your hustle 💼💸. From books to gadgets to whatever's in your bag – Jale is the go-to campus marketplace. Join with a referral & unlock exclusive perks 🔥🚀.",
   openGraph: {
-    title: "Join Our Amazing Platform - Special Invitation",
+    title: "🎉NOW IN UNILAG!🔥 BUY. SELL. NEGOTIATE.🚀 ",
     description:
       "🎉 Now in UNILAG! Buy • Sell • Negotiate 📚💸 Got old TEXTBOOKS, PAST QUESTONS, or ANYTHING valuable, USED or NEW? Hurry! Turn them into CASH or even make REQUESTS for products you need — from EDUCATION to FASHION and everything in between! 🎒👗💬 NEGOTIATE when cash is tight. It’s your campus marketplace! 🔄🤝",
     images: [

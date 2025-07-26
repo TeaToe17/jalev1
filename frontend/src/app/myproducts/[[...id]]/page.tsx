@@ -152,6 +152,7 @@ const MyProducts = () => {
   useEffect(() => {
     loadUser();
     loadCategories();
+    loadProducts();
   }, []);
 
   const showSuccess = (message: string) => {
@@ -163,8 +164,8 @@ const MyProducts = () => {
     e.preventDefault();
 
     if (!IsUser()) {
-      router.push("/login")
-    };
+      router.push("/login");
+    }
 
     setIsSubmitting(true);
     setError("");
@@ -931,7 +932,9 @@ const MyProducts = () => {
                   />
                 </svg>
               )}
-              <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
+              <span onClick={() => loadProducts()}>
+                {isLoading ? "Refreshing..." : "Refresh"}
+              </span>
             </button>
           </div>
 

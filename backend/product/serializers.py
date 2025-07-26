@@ -9,6 +9,7 @@ class ProductSerializer(serializers.ModelSerializer):
     request = serializers.PrimaryKeyRelatedField(queryset = Request.objects.all(), required=False, allow_null=True)
     owner = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all(), required=False)
 
+
     class Meta:
         model = Product
         fields = ["id", "name", "price", "image", "imagefile", "owner", "stock", "categories", "created", "sold", "negotiable", "request", "used", "extra_field", "is_sticky", "reserved"]
@@ -31,9 +32,10 @@ class ProductSerializer(serializers.ModelSerializer):
         # print("instance", instance)
 
         image_file = validated_data.get('imagefile')  # still upload image
-        result = upload(image_file, quality="85")
-        if result:
-            instance.image = result.get('secure_url')
+        if image_file:
+            result = upload(image_file, quality="85")
+            if result:
+                instance.image = result.get('secure_url')
 
         new_stock = validated_data.get("stock")
 

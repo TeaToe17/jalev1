@@ -18,7 +18,6 @@ interface Product {
   negotiable: boolean;
   extra_field: {};
   categories: number[];
-  // categories: { id: number; name: string }[];
   owner: number;
 }
 
