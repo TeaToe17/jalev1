@@ -55,94 +55,99 @@ logger = logging.getLogger(__name__)
 
 def browser_notify(user_id, subject, message, url):
     """
-    Send FCM push notification optimized for background delivery
+    Enhanced notification function with better error handling and payload structure
     """
-    logger.info(f"Sending notification: user_id={user_id}, subject={subject}")
+    logger.info(f"Sending notification: user_id={user_id}, subject={subject}, message={message}, url={url}")
     
-    # Check Firebase initialization
+    # Firebase initialization check
     try:
         app = get_app()
-        logger.info(f"Firebase Admin initialized: {app.name}")
+        logger.info(f"Firebase Admin app initialized: {app.name}")
     except ValueError as e:
-        logger.error(f"Firebase not initialized: {e}")
-        return {"status": "FAILED", "error": "Firebase not initialized"}
+        logger.error(f"Firebase Admin not initialized: {e}")
+        return {
+            "status": "FAILED",
+            "error": "Firebase not initialized"
+        }
     
-    try:
-        # Get user's FCM tokens
-        from .models import UserFCMToken  # Adjust import based on your structure
+    try:        
         tokens = UserFCMToken.objects.filter(user__id=user_id).values_list('token', flat=True)
         
         if not tokens:
-            logger.warning(f"No FCM tokens found for user {user_id}")
-            return {"status": "FAILED", "error": "No FCM tokens found"}
+            logger.warning(f"No FCM tokens found for user ID {user_id}")
+            return {
+                "status": "FAILED",
+                "error": "No FCM tokens found"
+            }
         
         successful_sends = 0
         failed_sends = 0
         
         for user_token in tokens:
             try:
-                # CRITICAL: For background notifications to work when browser is closed,
-                # you MUST include the 'notification' object at the top level
+                # Create message with both notification and data payloads
                 message_obj = messaging.Message(
-                    # Top-level notification - REQUIRED for background display
+                    # Notification payload - shows even when app is closed
                     notification=messaging.Notification(
                         title=subject,
                         body=message,
+                        image=url if url and url.endswith(('.jpg', '.png', '.gif')) else None
                     ),
-                    # Data payload - accessible in service worker
+                    # Data payload - available in service worker
                     data={
                         "title": subject,
                         "body": message,
-                        "url": url or "/",
+                        "url": url or "",
                         "timestamp": str(int(time.time())),
-                        "click_action": url or "/"
+                        "click_action": url or ""
                     },
-                    # Web push configuration
+                    # Web push specific options
                     webpush=messaging.WebpushConfig(
-                        headers={
-                            "Urgency": "high"  # Helps with delivery priority
-                        },
                         notification=messaging.WebpushNotification(
                             title=subject,
                             body=message,
-                            icon="/jale logo.png",
-                            badge="/jale logo.png",
-                            tag=f"jale-{int(time.time())}",
+                            icon="/logo.png",
+                            badge="/badge-icon.png",
+                            tag="notification-tag",
                             require_interaction=True,
-                            vibrate=[200, 100, 200],
                             actions=[
                                 messaging.WebpushNotificationAction(
                                     action="open",
                                     title="Open"
                                 ),
                                 messaging.WebpushNotificationAction(
-                                    action="close",
-                                    title="Dismiss"
+                                    action="close", 
+                                    title="Close"
                                 )
-                            ]
+                            ],
+                            data={
+                                "url": url or "",
+                                "timestamp": str(int(time.time()))
+                            }
                         ),
                         fcm_options=messaging.WebpushFCMOptions(
-                            link=url or "/"
+                            link=url
                         )
                     ),
                     token=user_token
                 )
                 
                 response = messaging.send(message_obj)
-                logger.info(f"Notification sent: {response}")
+                logger.info(f"Notification sent successfully: {response}")
                 successful_sends += 1
                 
             except messaging.UnregisteredError:
-                logger.warning(f"Unregistered token, removing: {user_token[:20]}...")
+                logger.warning(f"Token is unregistered, removing: {user_token}")
+                # Remove invalid token from database
                 UserFCMToken.objects.filter(token=user_token).delete()
                 failed_sends += 1
                 
             except messaging.InvalidArgumentError as e:
-                logger.error(f"Invalid argument: {e}")
+                logger.error(f"Invalid argument for token {user_token}: {e}")
                 failed_sends += 1
                 
             except Exception as e:
-                logger.error(f"Error sending notification: {e}")
+                logger.error(f"Error sending to token {user_token}: {e}")
                 failed_sends += 1
         
         return {
@@ -155,4 +160,8 @@ def browser_notify(user_id, subject, message, url):
         
     except Exception as e:
         logger.error(f"Error in browser_notify: {e}", exc_info=True)
-        return {"status": "FAILED", "error": str(e)}
+        return {
+            "status": "FAILED",
+            "subject": subject,
+            "error": str(e)
+        }
