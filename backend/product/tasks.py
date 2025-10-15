@@ -10,7 +10,6 @@ from email.mime.text import MIMEText
 # from django.apps import apps
 from user.models import UserFCMToken
 from firebase_admin import get_app, messaging
-from firebase_admin.exceptions import FirebaseError
 import os
 from dotenv import load_dotenv
 from django.conf import settings
@@ -56,126 +55,113 @@ logger = logging.getLogger(__name__)
 
 def browser_notify(user_id, subject, message, url):
     """
-    Sends a browser push notification using Firebase Cloud Messaging (FCM).
-    Includes both notification and data payloads for reliability.
-    Retries with a data-only message if the notification payload fails.
+    Enhanced notification function with better error handling and payload structure
     """
-
-    logger.info(f"[browser_notify] Sending notification: user_id={user_id}, subject={subject}, url={url}")
-
-    # Step 1: Check Firebase initialization
+    logger.info(f"Sending notification: user_id={user_id}, subject={subject}, message={message}, url={url}")
+    
+    # Firebase initialization check
     try:
         app = get_app()
-        logger.info(f"[browser_notify] Firebase Admin initialized: {app.name}")
+        logger.info(f"Firebase Admin app initialized: {app.name}")
     except ValueError as e:
-        logger.error(f"[browser_notify] Firebase not initialized: {e}")
-        return {"status": "FAILED", "error": "Firebase not initialized"}
-
-    try:
-        tokens = UserFCMToken.objects.filter(user__id=user_id).values_list("token", flat=True)
+        logger.error(f"Firebase Admin not initialized: {e}")
+        return {
+            "status": "FAILED",
+            "error": "Firebase not initialized"
+        }
+    
+    try:        
+        tokens = UserFCMToken.objects.filter(user__id=user_id).values_list('token', flat=True)
+        
         if not tokens:
-            logger.warning(f"[browser_notify] No FCM tokens found for user ID {user_id}")
-            return {"status": "FAILED", "error": "No FCM tokens found"}
-
+            logger.warning(f"No FCM tokens found for user ID {user_id}")
+            return {
+                "status": "FAILED",
+                "error": "No FCM tokens found"
+            }
+        
         successful_sends = 0
         failed_sends = 0
-
+        
         for user_token in tokens:
             try:
-                # Step 2: Main notification message (with visual notification)
+                # Create message with both notification and data payloads
                 message_obj = messaging.Message(
+                    # Notification payload - shows even when app is closed
                     notification=messaging.Notification(
                         title=subject,
                         body=message,
-                        image=url if url and url.endswith((".jpg", ".png", ".gif")) else None
+                        image=url if url and url.endswith(('.jpg', '.png', '.gif')) else None
                     ),
+                    # Data payload - available in service worker
                     data={
                         "title": subject,
                         "body": message,
                         "url": url or "",
                         "timestamp": str(int(time.time())),
-                        "click_action": url or "",
+                        "click_action": url or ""
                     },
+                    # Web push specific options
                     webpush=messaging.WebpushConfig(
-                        headers={
-                            "Urgency": "high",  # High priority to wake Android Chrome
-                            "TTL": "3600"       # Time-to-live = 1 hour
-                        },
                         notification=messaging.WebpushNotification(
                             title=subject,
                             body=message,
                             icon="/logo.png",
                             badge="/badge-icon.png",
-                            require_interaction=True,
                             tag="notification-tag",
+                            require_interaction=True,
                             actions=[
-                                messaging.WebpushNotificationAction(action="open", title="Open"),
-                                messaging.WebpushNotificationAction(action="close", title="Close"),
+                                messaging.WebpushNotificationAction(
+                                    action="open",
+                                    title="Open"
+                                ),
+                                messaging.WebpushNotificationAction(
+                                    action="close", 
+                                    title="Close"
+                                )
                             ],
                             data={
                                 "url": url or "",
                                 "timestamp": str(int(time.time()))
-                            },
+                            }
                         ),
-                        fcm_options=messaging.WebpushFCMOptions(link=url)
+                        fcm_options=messaging.WebpushFCMOptions(
+                            link=url
+                        )
                     ),
-                    token=user_token,
+                    token=user_token
                 )
-
+                
                 response = messaging.send(message_obj)
-                logger.info(f"[browser_notify] Notification sent successfully: {response}")
+                logger.info(f"Notification sent successfully: {response}")
                 successful_sends += 1
-
-            except (messaging.UnregisteredError, messaging.InvalidArgumentError) as e:
-                logger.warning(f"[browser_notify] Invalid or unregistered token ({user_token}): {e}")
+                
+            except messaging.UnregisteredError:
+                logger.warning(f"Token is unregistered, removing: {user_token}")
+                # Remove invalid token from database
                 UserFCMToken.objects.filter(token=user_token).delete()
                 failed_sends += 1
-
-            except FirebaseError as e:
-                logger.error(f"[browser_notify] FirebaseError sending to {user_token}: {e}")
+                
+            except messaging.InvalidArgumentError as e:
+                logger.error(f"Invalid argument for token {user_token}: {e}")
                 failed_sends += 1
-
+                
             except Exception as e:
-                logger.error(f"[browser_notify] Error sending to {user_token}: {e}", exc_info=True)
+                logger.error(f"Error sending to token {user_token}: {e}")
                 failed_sends += 1
-
-                # Step 3: Fallback – retry with data-only message (for devices ignoring notification payload)
-                try:
-                    fallback_msg = messaging.Message(
-                        data={
-                            "title": subject,
-                            "body": message,
-                            "url": url or "",
-                            "timestamp": str(int(time.time())),
-                            "click_action": url or "",
-                            "fallback": "true",
-                        },
-                        webpush=messaging.WebpushConfig(
-                            headers={
-                                "Urgency": "high",
-                                "TTL": "3600"
-                            },
-                            fcm_options=messaging.WebpushFCMOptions(link=url)
-                        ),
-                        token=user_token,
-                    )
-
-                    fallback_response = messaging.send(fallback_msg)
-                    logger.info(f"[browser_notify] Fallback data-only message sent: {fallback_response}")
-                    successful_sends += 1
-                except Exception as fallback_error:
-                    logger.error(f"[browser_notify] Fallback send failed: {fallback_error}")
-                    failed_sends += 1
-
-        status = "SENT" if successful_sends > 0 else "FAILED"
+        
         return {
-            "status": status,
+            "status": "SENT" if successful_sends > 0 else "FAILED",
             "subject": subject,
             "successful_sends": successful_sends,
             "failed_sends": failed_sends,
-            "total_tokens": len(tokens),
+            "total_tokens": len(tokens)
         }
-
+        
     except Exception as e:
-        logger.error(f"[browser_notify] General error: {e}", exc_info=True)
-        return {"status": "FAILED", "subject": subject, "error": str(e)}
+        logger.error(f"Error in browser_notify: {e}", exc_info=True)
+        return {
+            "status": "FAILED",
+            "subject": subject,
+            "error": str(e)
+        }
