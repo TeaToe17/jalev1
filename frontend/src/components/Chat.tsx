@@ -782,7 +782,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
                   {productDetails.productName || "Product Name"}
                 </h3>
                 <p className="text-white/80 text-sm">
-                  Price: ${productDetails.productPrice || 0}
+                  Price: {productDetails.productPrice || 0}
                 </p>
               </div>
             </div>
@@ -827,7 +827,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
               </motion.button>
             </div>
             <p className="text-white font-medium">
-              Payout: ${Number(agreedPrice) * 0.9}
+              Payout: {Number(agreedPrice) * 0.9}
             </p>
           </div>
         </motion.div>

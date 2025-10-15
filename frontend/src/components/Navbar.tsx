@@ -301,7 +301,7 @@ const Navbar = () => {
               ) : (
                 <span className="relative">
                   <Menu className="w-6 h-6" />
-                  {messageCount > 0 && (
+                  {(messageCount > 0 || cartCount > 0) && (
                     <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold px-1 rounded-full">
                       {messageCount+cartCount}
                     </span>

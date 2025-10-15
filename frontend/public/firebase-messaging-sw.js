@@ -1,3 +1,6 @@
+/* firebase-messaging-sw.js (full service worker) */
+
+/* Import Firebase compat libraries */
 importScripts(
   "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"
 );
@@ -5,6 +8,7 @@ importScripts(
   "https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"
 );
 
+/* Replace with your config (kept from your example) */
 const firebaseConfig = {
   apiKey: "AIzaSyD5LN2IpcCY8RpwCVRxeV8X9trBWAnZGgg",
   authDomain: "bookit-83750.firebaseapp.com",
@@ -18,144 +22,177 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// Enhanced background message handler
-messaging.onBackgroundMessage((payload) => {
-  console.log(
-    "[firebase-messaging-sw.js] Received background message",
-    payload
-  );
-
-  // Handle both notification and data payloads
-  const notificationTitle =
-    payload.notification?.title || payload.data?.title || "New Notification";
-  const notificationBody =
-    payload.notification?.body ||
-    payload.data?.body ||
+/* Helper to build and show a notification from a parsed payload */
+async function showNotificationFromPayload(parsed) {
+  // Narrowly extract fields but preserve everything in data
+  const title =
+    parsed.notification?.title ||
+    parsed.data?.title ||
+    parsed.data?.titleText ||
+    "New Notification";
+  const body =
+    parsed.notification?.body ||
+    parsed.data?.body ||
+    parsed.data?.message ||
     "You have a new message";
-  const link = payload.data?.url || payload.fcmOptions?.link;
+  const url =
+    parsed.data?.url || parsed.fcmOptions?.link || parsed.data?.link || "/";
 
-  const notificationOptions = {
-    body: notificationBody,
-    icon: "/logo.png", // Use absolute path
-    badge: "/badge-icon.png", // Add badge for mobile
-    tag: "notification-tag", // Prevent duplicate notifications
-    requireInteraction: true, // Keep notification visible until user interacts
+  // Build a tag to help dedupe replacement if duplicate handlers run
+  // If payload provides a tag/id, prefer it; otherwise use a stable timestamp
+  const tag =
+    parsed.data?.tag ||
+    parsed.notification?.tag ||
+    `app-notification-${
+      parsed.data?.id || parsed.data?.timestamp || Date.now()
+    }`;
+
+  const options = {
+    body,
+    icon: "/logo.png",
+    badge: "/badge-icon.png",
+    tag,
+    requireInteraction: true,
     actions: [
-      {
-        action: "open",
-        title: "Open",
-        icon: "/open-icon.png",
-      },
-      {
-        action: "close",
-        title: "Close",
-        icon: "/close-icon.png",
-      },
+      { action: "open", title: "Open", icon: "/open-icon.png" },
+      { action: "close", title: "Close", icon: "/close-icon.png" },
     ],
     data: {
-      url: link,
+      // Preserve the full data object so you can use any field on click
+      url,
+      payloadData: parsed.data || {},
       timestamp: Date.now(),
     },
-    // Add vibration pattern for mobile
     vibrate: [200, 100, 200],
-    // Add sound
     silent: false,
   };
 
-  return self.registration.showNotification(
-    notificationTitle,
-    notificationOptions
+  return self.registration.showNotification(title, options);
+}
+
+/* --- Primary: Firebase background message handler --- */
+/* This is the recommended compat handler for FCM background messages */
+messaging.onBackgroundMessage(async (payload) => {
+  try {
+    // payload can contain .notification and .data — pass it through
+    await showNotificationFromPayload(payload);
+    console.log(
+      "[firebase-messaging-sw.js] onBackgroundMessage handled:",
+      payload
+    );
+  } catch (err) {
+    console.error(
+      "[firebase-messaging-sw.js] Error in onBackgroundMessage:",
+      err
+    );
+  }
+});
+
+/* --- Fallback push listener --- */
+/* Some environments deliver a raw push event rather than triggering
+   firebase's onBackgroundMessage. This fallback parses the event and
+   calls the same showNotificationFromPayload helper.
+   To avoid duplicate notifications when both run, we rely on `tag`
+   replacement: same tag => replaces existing notification. */
+self.addEventListener("push", (event) => {
+  if (!event.data) {
+    // No payload — nothing to show
+    return;
+  }
+
+  let parsed = null;
+  try {
+    parsed = event.data.json();
+  } catch (err) {
+    // If data isn't JSON, treat as text body
+    parsed = {
+      notification: { title: "Notification", body: event.data.text() },
+      data: {},
+    };
+  }
+
+  event.waitUntil(
+    (async () => {
+      try {
+        await showNotificationFromPayload(parsed);
+        console.log("[firebase-messaging-sw.js] Push event shown:", parsed);
+      } catch (err) {
+        console.error("[firebase-messaging-sw.js] Error showing push:", err);
+      }
+    })()
   );
 });
 
-// Enhanced notification click handler
+/* --- Notification click handler --- */
+/* Focus an existing window with the URL or open a new one. */
 self.addEventListener("notificationclick", (event) => {
   console.log("[firebase-messaging-sw.js] Notification click received.");
-
   event.notification.close();
 
-  const url = event.notification.data?.url;
   const action = event.action;
+  // Extract saved url (if any)
+  const url =
+    event.notification.data?.url ||
+    event.notification.data?.payloadData?.url ||
+    "/";
 
   if (action === "close") {
-    return; // Just close the notification
-  }
-
-  if (!url) {
-    console.log("No URL provided in notification data");
+    // user explicitly clicked the close action
     return;
   }
 
   event.waitUntil(
-    clients
-      .matchAll({
-        type: "window",
-        includeUncontrolled: true,
-      })
-      .then((clientList) => {
-        // Try to find an existing window with the target URL
+    (async () => {
+      try {
+        // Get all the window clients (tabs)
+        const clientList = await clients.matchAll({
+          type: "window",
+          includeUncontrolled: true,
+        });
+
+        // Try to find a client whose URL path matches the notification URL
+        const targetPath = new URL(url, self.location.origin).pathname;
+
         for (const client of clientList) {
-          if (
-            client.url.includes(new URL(url, self.location.origin).pathname) &&
-            "focus" in client
-          ) {
-            return client.focus();
+          try {
+            const clientUrl = new URL(client.url);
+            if (
+              clientUrl.pathname === targetPath ||
+              client.url.includes(targetPath)
+            ) {
+              // If it's focusable, focus it and bring to front
+              if ("focus" in client) {
+                await client.focus();
+                // Optionally navigate if it doesn't match full URL (e.g., single-page apps)
+                // Use client.postMessage if you need to inform the page about the payload
+                // client.postMessage({ type: "notification-click", data: event.notification.data });
+                return;
+              }
+            }
+          } catch (err) {
+            // ignore malformed urls in clients
+            continue;
           }
         }
 
-        // If no existing window found, open a new one
+        // If no matching client, open a new window/tab
         if (clients.openWindow) {
-          return clients.openWindow(url);
+          await clients.openWindow(url);
         }
-      })
-      .catch((error) => {
-        console.error("Error handling notification click:", error);
-      })
+      } catch (err) {
+        console.error("Error handling notification click:", err);
+      }
+    })()
   );
 });
 
-// Add push event listener for better mobile support
-self.addEventListener("push", (event) => {
-  console.log("[firebase-messaging-sw.js] Push event received");
-
-  if (!event.data) {
-    console.log("Push event but no data");
-    return;
-  }
-
-  try {
-    const payload = event.data.json();
-    console.log("Push payload:", payload);
-
-    // Handle the push event manually if needed
-    const notificationTitle =
-      payload.notification?.title || payload.data?.title || "New Notification";
-    const notificationOptions = {
-      body:
-        payload.notification?.body ||
-        payload.data?.body ||
-        "You have a new message",
-      icon: "/logo.png",
-      badge: "/badge-icon.png",
-      data: payload.data || {},
-      tag: "push-notification",
-    };
-
-    event.waitUntil(
-      self.registration.showNotification(notificationTitle, notificationOptions)
-    );
-  } catch (error) {
-    console.error("Error parsing push data:", error);
-  }
-});
-
-// Add install and activate events for better service worker lifecycle management
+/* --- Install / Activate lifecycle --- */
 self.addEventListener("install", (event) => {
-  console.log("[firebase-messaging-sw.js] Service worker installing");
-  self.skipWaiting();
+  console.log("[firebase-messaging-sw.js] installing service worker");
+  self.skipWaiting(); // Activate new worker immediately
 });
 
 self.addEventListener("activate", (event) => {
-  console.log("[firebase-messaging-sw.js] Service worker activating");
-  event.waitUntil(self.clients.claim());
+  console.log("[firebase-messaging-sw.js] activating service worker");
+  event.waitUntil(self.clients.claim()); // Become available to all pages
 });

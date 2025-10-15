@@ -58,6 +58,3 @@ class CategorySerialzer(serializers.ModelSerializer):
         model = Category
         fields = ["id", "name", "icon"]
         extra_kwargs = {"name":{"read_only":True},"icon":{"read_only":True}}  
-
-
-
