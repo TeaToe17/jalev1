@@ -34,6 +34,7 @@ export const metadata: Metadata = {
       "🎉 Now in UNILAG! Buy • Sell • Negotiate 📚💸 Got old TEXTBOOKS, PAST QUESTONS, or ANYTHING valuable, USED or NEW? Hurry! Turn them into CASH or even make REQUESTS for products you need — from EDUCATION to FASHION and everything in between! 🎒👗💬 NEGOTIATE when cash is tight. It’s your campus marketplace! 🔄🤝",
     images: ["https://jale.vercel.app/jalecover.jpg"],
   },
+  manifest: "/manifest.json",
 };
 
 const inter = Inter({ subsets: ["latin"] });
