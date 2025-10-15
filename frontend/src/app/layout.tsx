@@ -35,6 +35,17 @@ export const metadata: Metadata = {
     images: ["https://jale.vercel.app/jalecover.jpg"],
   },
   manifest: "/manifest.json",
+  themeColor: "#000000",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Jale",
+  },
 };
 
 const inter = Inter({ subsets: ["latin"] });
