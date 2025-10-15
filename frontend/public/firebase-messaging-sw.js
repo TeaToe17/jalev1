@@ -61,6 +61,11 @@ async function showNotificationFromPayload(payload) {
 messaging.onBackgroundMessage(async (payload) => {
   console.log("[SW] Background message received:", payload)
 
+  if (Notification.permission !== "granted") {
+    console.error("[SW] Notification permission not granted")
+    return
+  }
+
   try {
     await showNotificationFromPayload(payload)
   } catch (error) {
@@ -70,7 +75,7 @@ messaging.onBackgroundMessage(async (payload) => {
 
 /* FALLBACK: Raw push event listener */
 self.addEventListener("push", (event) => {
-  console.log("[SW] Push event received")
+  console.log("[SW] Push event received", event)
 
   if (!event.data) {
     console.log("[SW] Push event has no data")
@@ -80,12 +85,14 @@ self.addEventListener("push", (event) => {
   let payload
   try {
     payload = event.data.json()
+    console.log("[SW] Parsed push payload:", payload)
   } catch (error) {
     console.error("[SW] Error parsing push data:", error)
+    const textData = event.data.text()
     payload = {
       notification: {
         title: "New Notification",
-        body: event.data.text(),
+        body: textData || "You have a new notification",
       },
       data: {},
     }
@@ -93,7 +100,7 @@ self.addEventListener("push", (event) => {
 
   event.waitUntil(
     showNotificationFromPayload(payload)
-      .then(() => console.log("[SW] Push notification shown"))
+      .then(() => console.log("[SW] Push notification shown successfully"))
       .catch((err) => console.error("[SW] Error showing push:", err)),
   )
 })
@@ -143,9 +150,25 @@ self.addEventListener("install", (event) => {
   self.skipWaiting()
 })
 
+let keepAliveInterval
 self.addEventListener("activate", (event) => {
   console.log("[SW] Service Worker activating")
-  event.waitUntil(self.clients.claim())
+  event.waitUntil(
+    self.clients.claim().then(() => {
+      // Start keepalive ping every 20 seconds
+      if (keepAliveInterval) clearInterval(keepAliveInterval)
+      keepAliveInterval = setInterval(() => {
+        console.log("[SW] Keepalive ping")
+      }, 20000)
+    }),
+  )
+})
+
+self.addEventListener("message", (event) => {
+  console.log("[SW] Message received:", event.data)
+  if (event.data && event.data.type === "PING") {
+    event.ports[0].postMessage({ type: "PONG", timestamp: Date.now() })
+  }
 })
 
 console.log("[SW] Firebase Messaging Service Worker loaded")
