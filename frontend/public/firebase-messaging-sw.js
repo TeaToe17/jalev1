@@ -1,11 +1,15 @@
 /* firebase-messaging-sw.js - Service Worker for FCM Background Messages */
 
 /* Import Firebase compat libraries */
-importScripts("https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js")
-importScripts("https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js")
+importScripts(
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"
+);
+importScripts(
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"
+);
 
 /* Declare Firebase variable */
-const firebase = self.firebase
+const firebase = self.firebase;
 
 /* Firebase configuration */
 const firebaseConfig = {
@@ -16,24 +20,30 @@ const firebaseConfig = {
   messagingSenderId: "244206413621",
   appId: "1:244206413621:web:4b6ce1f09659632d590e7c",
   measurementId: "G-0NHM7Z1VPZ",
-}
+};
 
-firebase.initializeApp(firebaseConfig)
-const messaging = firebase.messaging()
+firebase.initializeApp(firebaseConfig);
+const messaging = firebase.messaging();
 
 /* Helper to show notification from payload */
 async function showNotificationFromPayload(payload) {
-  console.log("[SW] Received payload:", payload)
+  console.log("[SW] Received payload:", payload);
 
   // Extract notification data - FCM sends it in different structures
-  const notificationData = payload.notification || {}
-  const dataPayload = payload.data || {}
+  const notificationData = payload.notification || {};
+  const dataPayload = payload.data || {};
 
-  const title = notificationData.title || dataPayload.title || "New Notification"
-  const body = notificationData.body || dataPayload.body || "You have a new message"
-  const icon = notificationData.icon || dataPayload.icon || "/jale logo.png"
-  const url = dataPayload.url || dataPayload.click_action || payload.fcmOptions?.link || "/"
-  const tag = dataPayload.tag || `jale-notification-${Date.now()}`
+  const title =
+    notificationData.title || dataPayload.title || "New Notification";
+  const body =
+    notificationData.body || dataPayload.body || "You have a new message";
+  const icon = notificationData.icon || dataPayload.icon || "/jale logo.png";
+  const url =
+    dataPayload.url ||
+    dataPayload.click_action ||
+    payload.fcmOptions?.link ||
+    "/";
+  const tag = dataPayload.tag || `jale-notification-${Date.now()}`;
 
   const options = {
     body,
@@ -51,71 +61,71 @@ async function showNotificationFromPayload(payload) {
       { action: "open", title: "Open" },
       { action: "close", title: "Dismiss" },
     ],
-  }
+  };
 
   // Show the notification
-  return self.registration.showNotification(title, options)
+  return self.registration.showNotification(title, options);
 }
 
 /* PRIMARY: Firebase background message handler */
 messaging.onBackgroundMessage(async (payload) => {
-  console.log("[SW] Background message received:", payload)
+  console.log("[SW] Background message received:", payload);
 
   if (Notification.permission !== "granted") {
-    console.error("[SW] Notification permission not granted")
-    return
+    console.error("[SW] Notification permission not granted");
+    return;
   }
 
   try {
-    await showNotificationFromPayload(payload)
+    await showNotificationFromPayload(payload);
   } catch (error) {
-    console.error("[SW] Error showing notification:", error)
+    console.error("[SW] Error showing notification:", error);
   }
-})
+});
 
 /* FALLBACK: Raw push event listener */
 self.addEventListener("push", (event) => {
-  console.log("[SW] Push event received", event)
+  console.log("[SW] Push event received", event);
 
   if (!event.data) {
-    console.log("[SW] Push event has no data")
-    return
+    console.log("[SW] Push event has no data");
+    return;
   }
 
-  let payload
+  let payload;
   try {
-    payload = event.data.json()
-    console.log("[SW] Parsed push payload:", payload)
+    payload = event.data.json();
+    console.log("[SW] Parsed push payload:", payload);
   } catch (error) {
-    console.error("[SW] Error parsing push data:", error)
-    const textData = event.data.text()
+    console.error("[SW] Error parsing push data:", error);
+    const textData = event.data.text();
     payload = {
       notification: {
         title: "New Notification",
         body: textData || "You have a new notification",
       },
       data: {},
-    }
+    };
   }
 
   event.waitUntil(
     showNotificationFromPayload(payload)
       .then(() => console.log("[SW] Push notification shown successfully"))
-      .catch((err) => console.error("[SW] Error showing push:", err)),
-  )
-})
+      .catch((err) => console.error("[SW] Error showing push:", err))
+  );
+});
 
 /* Notification click handler */
 self.addEventListener("notificationclick", (event) => {
-  console.log("[SW] Notification clicked:", event.action)
+  console.log("[SW] Notification clicked:", event.action);
 
-  event.notification.close()
+  event.notification.close();
 
   if (event.action === "close") {
-    return
+    return;
   }
 
-  const urlToOpen = event.notification.data?.url || "/"
+  const urlToOpen = event.notification.data?.url || "/";
 
   event.waitUntil(
     clients
@@ -124,51 +134,51 @@ self.addEventListener("notificationclick", (event) => {
         // Try to find an existing window with matching URL
         for (const client of clientList) {
           try {
-            const clientUrl = new URL(client.url)
-            const targetUrl = new URL(urlToOpen, self.location.origin)
+            const clientUrl = new URL(client.url);
+            const targetUrl = new URL(urlToOpen, self.location.origin);
 
             if (clientUrl.pathname === targetUrl.pathname) {
-              return client.focus()
+              return client.focus();
             }
           } catch (err) {
-            console.error("[SW] Error parsing client URL:", err)
+            console.error("[SW] Error parsing client URL:", err);
           }
         }
 
         // No matching window found, open new one
         if (clients.openWindow) {
-          return clients.openWindow(urlToOpen)
+          return clients.openWindow(urlToOpen);
         }
       })
-      .catch((err) => console.error("[SW] Error handling click:", err)),
-  )
-})
+      .catch((err) => console.error("[SW] Error handling click:", err))
+  );
+});
 
 /* Service Worker lifecycle */
 self.addEventListener("install", (event) => {
-  console.log("[SW] Service Worker installing")
-  self.skipWaiting()
-})
+  console.log("[SW] Service Worker installing");
+  self.skipWaiting();
+});
 
-let keepAliveInterval
+let keepAliveInterval;
 self.addEventListener("activate", (event) => {
-  console.log("[SW] Service Worker activating")
+  console.log("[SW] Service Worker activating");
   event.waitUntil(
     self.clients.claim().then(() => {
       // Start keepalive ping every 20 seconds
-      if (keepAliveInterval) clearInterval(keepAliveInterval)
+      if (keepAliveInterval) clearInterval(keepAliveInterval);
       keepAliveInterval = setInterval(() => {
-        console.log("[SW] Keepalive ping")
-      }, 20000)
-    }),
-  )
-})
+        console.log("[SW] Keepalive ping");
+      }, 20000);
+    })
+  );
+});
 
 self.addEventListener("message", (event) => {
-  console.log("[SW] Message received:", event.data)
+  console.log("[SW] Message received:", event.data);
   if (event.data && event.data.type === "PING") {
-    event.ports[0].postMessage({ type: "PONG", timestamp: Date.now() })
+    event.ports[0].postMessage({ type: "PONG", timestamp: Date.now() });
   }
-})
+});
 
-console.log("[SW] Firebase Messaging Service Worker loaded")
+console.log("[SW] Firebase Messaging Service Worker loaded");
