@@ -25,6 +25,7 @@ const messaging = firebase.messaging()
 async function showNotificationFromPayload(payload) {
   console.log("[SW] Received payload:", payload)
 
+  // Extract notification data - FCM sends it in different structures
   const notificationData = payload.notification || {}
   const dataPayload = payload.data || {}
 
@@ -41,7 +42,6 @@ async function showNotificationFromPayload(payload) {
     tag,
     requireInteraction: true,
     vibrate: [200, 100, 200],
-    renotify: true,
     data: {
       url,
       timestamp: Date.now(),
@@ -53,13 +53,8 @@ async function showNotificationFromPayload(payload) {
     ],
   }
 
-  try {
-    await self.registration.showNotification(title, options)
-    console.log("[SW] Notification displayed successfully")
-  } catch (error) {
-    console.error("[SW] Failed to show notification:", error)
-    throw error
-  }
+  // Show the notification
+  return self.registration.showNotification(title, options)
 }
 
 /* PRIMARY: Firebase background message handler */
@@ -80,47 +75,33 @@ messaging.onBackgroundMessage(async (payload) => {
 
 /* FALLBACK: Raw push event listener */
 self.addEventListener("push", (event) => {
-  console.log("[SW] Push event received (app may be closed)", event)
+  console.log("[SW] Push event received", event)
 
-  // Force service worker to stay awake
+  if (!event.data) {
+    console.log("[SW] Push event has no data")
+    return
+  }
+
+  let payload
+  try {
+    payload = event.data.json()
+    console.log("[SW] Parsed push payload:", payload)
+  } catch (error) {
+    console.error("[SW] Error parsing push data:", error)
+    const textData = event.data.text()
+    payload = {
+      notification: {
+        title: "New Notification",
+        body: textData || "You have a new notification",
+      },
+      data: {},
+    }
+  }
+
   event.waitUntil(
-    (async () => {
-      try {
-        if (!event.data) {
-          console.log("[SW] Push event has no data")
-          return
-        }
-
-        let payload
-        try {
-          payload = event.data.json()
-          console.log("[SW] Parsed push payload:", payload)
-        } catch (error) {
-          console.error("[SW] Error parsing push data:", error)
-          const textData = event.data.text()
-          payload = {
-            notification: {
-              title: "New Notification",
-              body: textData || "You have a new notification",
-            },
-            data: {},
-          }
-        }
-
-        await showNotificationFromPayload(payload)
-        console.log("[SW] Push notification shown successfully")
-
-        const allClients = await clients.matchAll({ includeUncontrolled: true })
-        allClients.forEach((client) => {
-          client.postMessage({
-            type: "NOTIFICATION_RECEIVED",
-            payload: payload,
-          })
-        })
-      } catch (err) {
-        console.error("[SW] Error in push handler:", err)
-      }
-    })(),
+    showNotificationFromPayload(payload)
+      .then(() => console.log("[SW] Push notification shown successfully"))
+      .catch((err) => console.error("[SW] Error showing push:", err)),
   )
 })
 
@@ -173,30 +154,14 @@ let keepAliveInterval
 self.addEventListener("activate", (event) => {
   console.log("[SW] Service Worker activating")
   event.waitUntil(
-    (async () => {
-      await self.clients.claim()
-      console.log("[SW] Clients claimed")
-
-      try {
-        if ("periodicSync" in self.registration) {
-          await self.registration.periodicSync.register("keep-alive", {
-            minInterval: 12 * 60 * 60 * 1000, // 12 hours
-          })
-          console.log("[SW] Periodic sync registered")
-        }
-      } catch (error) {
-        console.log("[SW] Periodic sync not available:", error)
-      }
-    })(),
+    self.clients.claim().then(() => {
+      // Start keepalive ping every 20 seconds
+      if (keepAliveInterval) clearInterval(keepAliveInterval)
+      keepAliveInterval = setInterval(() => {
+        console.log("[SW] Keepalive ping")
+      }, 20000)
+    }),
   )
-})
-
-// Periodic sync event handler
-self.addEventListener("periodicsync", (event) => {
-  if (event.tag === "keep-alive") {
-    console.log("[SW] Periodic sync: keeping service worker alive")
-    event.waitUntil(Promise.resolve())
-  }
 })
 
 self.addEventListener("message", (event) => {
