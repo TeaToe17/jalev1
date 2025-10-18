@@ -29,6 +29,5 @@ urlpatterns = [
     path("order/", include("order.urls")),
     path("user/", include("user.urls")),
     path("product/", include("product.urls")),
-    path('webpush/', include('webpush.urls')),
 ]
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

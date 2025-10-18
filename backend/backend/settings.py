@@ -77,7 +77,6 @@ INSTALLED_APPS = [
     'request',
     'order',
     'product',
-    'webpush',
 ]
 
 

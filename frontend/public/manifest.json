@@ -1,12 +1,12 @@
 {
-  "name": "Jale - Buy, Sell & Discover Books",
+  "name": "Jale - Buy, Sell & Negotiate ",
   "short_name": "Jale",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
-  "description": "Jale — Buy, Sell & Discover books easily.",
+  "description": "Jale — Buy, Sell & Negotiate.",
   "orientation": "portrait-primary",
   "icons": [
     {
