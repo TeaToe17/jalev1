@@ -4,11 +4,8 @@ import axios from "axios";
 import { jwtDecode } from "jwt-decode"; // Default import for jwt-decode
 import { ACCESS_TOKEN, REFRESH_TOKEN } from "./constant";
 
-export const apiURL = "http://127.0.0.1:8000/";
-
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || apiURL,
-  // baseURL: apiURL,
+  baseURL: `http${process.env.NEXT_DYNAMIC_URL}/`,
 });
 
 const refreshTokenEndpoint = "/api/token/refresh/";

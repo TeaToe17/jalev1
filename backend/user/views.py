@@ -13,6 +13,9 @@ from rest_framework.parsers import MultiPartParser
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from django.http import JsonResponse
+from dotenv import load_dotenv
+import os
+
 import time
 import threading
 from send_email import send_email
@@ -114,8 +117,7 @@ def send_message_push_notification(request):
         user_Id = request.data.get("receiverId")
         subject = "New Message"
         message = request.data.get("message")
-        # url = str(f"https://localhost:3000/chat/{request.data.get('senderId')}")
-        url = str(f"https://jale.vercel.app/chat/{request.data.get('senderId')}")
+        url = str(f"https://{os.getenv('JALE_DYNAMIC_URL')}/chat/{request.data.get('senderId')}")
 
 
         # This task is loacted in product.task because its also used for Products

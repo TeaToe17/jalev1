@@ -10,6 +10,13 @@ from django.conf import settings
 from .models import CustomUser, UserFCMToken, Message, ChatPreview
 from product.models import Category
 
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+
+
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(allow_blank=True, required=False)
     password = serializers.CharField(allow_blank=True, required=False, write_only=True)
@@ -101,8 +108,7 @@ class PasswordResetSerializer(serializers.Serializer):
         user = CustomUser.objects.get(email=email)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
-        # reset_url = f"https://localhost:3000/resetpassword?uid={uid}&token={token}"
-        reset_url = f"https://jale.vercel.app/resetpassword?uid={uid}&token={token}"
+        reset_url = f"https://{os.getenv('JALE_DYNAMIC_URL')}/resetpassword?uid={uid}&token={token}"
         send_mail(
             subject="Password Reset",
             message=f"Click here to reset your password: {reset_url}",

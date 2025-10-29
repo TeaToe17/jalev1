@@ -75,6 +75,8 @@ const Navbar = () => {
     loadUser();
   }, []);
 
+
+  
   useEffect(() => {
     if (pathname === `chat/${globalMessages?.receiver_id}`) return;
     if (globalMessages) {
