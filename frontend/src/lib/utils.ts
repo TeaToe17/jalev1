@@ -229,8 +229,8 @@ export function connectToChat(
 
   const ws = new WebSocket(
     productId
-      ? `ws${process.env.NEXT_DYNAMIC_URL}/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
-      : `ws${process.env.NEXT_DYNAMIC_URL}/ws/chat/${receiverId}/?token=${token}`
+      ? `${process.env.NEXT_JALE_WS_DYNAMIC_URL}/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
+      : `${process.env.NEXT_JALE_WS_DYNAMIC_URL}/ws/chat/${receiverId}/?token=${token}`
   );
 
   ws.onopen = () => {
