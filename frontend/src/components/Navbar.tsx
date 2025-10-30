@@ -75,29 +75,6 @@ const Navbar = () => {
     loadUser();
   }, []);
 
-
-  
-  useEffect(() => {
-    if (pathname === `chat/${globalMessages?.receiver_id}`) return;
-    if (globalMessages) {
-      const PushMessage = async (msg: Message) => {
-        const formData = new FormData();
-        formData.append("receiverId", msg.receiver_id.toString());
-        formData.append("senderId", msg.sender_id.toString());
-        formData.append("message", msg.text);
-        try {
-          await api.post("user/push_message/", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-          });
-        } catch (error) {
-          console.log(error);
-        }
-      };
-
-      PushMessage(globalMessages);
-    }
-  }, [globalMessages]);
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (

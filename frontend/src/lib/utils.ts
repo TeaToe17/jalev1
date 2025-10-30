@@ -229,8 +229,11 @@ export function connectToChat(
 
   const ws = new WebSocket(
     productId
-      ? `${process.env.NEXT_JALE_WS_DYNAMIC_URL}/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
-      : `${process.env.NEXT_JALE_WS_DYNAMIC_URL}/ws/chat/${receiverId}/?token=${token}`
+      ? `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
+      : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`
+    // productId
+    //   ? `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
+    //   : `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}`
   );
 
   ws.onopen = () => {
