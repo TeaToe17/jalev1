@@ -71,7 +71,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const { currentProduct, setCurrentProduct, setMessageTrigger } =
+  const { currentProduct, setCurrentProduct, setMessageTrigger, isLoggedIn } =
     useAppContext();
   const [productId, setProductId] = useState<number | string>("");
   const [ownerId, setOwnerId] = useState<number | string>("");
@@ -229,7 +229,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
 
   // Connect to WebSocket and fetch history
   useEffect(() => {
-    if (!receiverId) return;
+    if (!receiverId || !LoggedIn()) return;
 
     fetchHistory();
 
@@ -517,10 +517,10 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   };
 
   useEffect(() => {
-    if (!LoggedIn) router.replace("/login");
-  }, [LoggedIn, router]);
+    if (!LoggedIn()) router.replace("/login");
+  }, []);
 
-  if (!LoggedIn) {
+  if (!LoggedIn()) {
     // You can show a placeholder while the redirect happens
     return (
       <div className="flex h-full items-center justify-center">

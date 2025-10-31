@@ -1,38 +1,44 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import api from "../lib/api"
-import { ACCESS_TOKEN, REFRESH_TOKEN } from "../lib/constant"
-import LoadingIndicator from "./LoadingIndicator"
-import { useAppContext } from "@/context"
-import useFcmToken from "./FcmProvider"
-import { motion, AnimatePresence } from "framer-motion"
-import { AlertCircle, CheckCircle, Eye, EyeOff, ArrowRight } from "lucide-react"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import api from "../lib/api";
+import { ACCESS_TOKEN, REFRESH_TOKEN } from "../lib/constant";
+import LoadingIndicator from "./LoadingIndicator";
+import { useAppContext } from "@/context";
+import useFcmToken from "./FcmProvider";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  AlertCircle,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  ArrowRight,
+} from "lucide-react";
 
 interface FormProps {
-  route: string
-  method: "login" | "register"
+  route: string;
+  method: "login" | "register";
 }
 
 const Form = ({ route, method }: FormProps) => {
-  const { url, setIsLoggedIn } = useAppContext()
-  const [username, setUserName] = useState("")
-  const [password, setPassword] = useState("")
-  const [email, setEmail] = useState<string | null>(null)
-  const [whatsapp, setWhatsapp] = useState<string | null>(null)
-  const [call, setCall] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const router = useRouter()
-  const { token, notificationPermissionStatus } = useFcmToken()
+  const { url, setIsLoggedIn } = useAppContext();
+  const [username, setUserName] = useState("");
+  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState<string | null>(null);
+  const [whatsapp, setWhatsapp] = useState<string | null>(null);
+  const [call, setCall] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const router = useRouter();
+  const { token, notificationPermissionStatus } = useFcmToken();
 
-  const name = method === "login" ? "Login" : "Register"
-  const isRegister = method === "register"
+  const name = method === "login" ? "Login" : "Register";
+  const isRegister = method === "register";
 
   // Form validation
   const [formErrors, setFormErrors] = useState({
@@ -41,81 +47,81 @@ const Form = ({ route, method }: FormProps) => {
     email: "",
     whatsapp: "",
     call: "",
-  })
+  });
 
   const validateForm = () => {
-    let isValid = true
+    let isValid = true;
     const errors = {
       username: "",
       password: "",
       email: "",
       whatsapp: "",
       call: "",
-    }
+    };
 
     // Username validation
     if (!username.trim()) {
-      errors.username = "Username is required"
-      isValid = false
+      errors.username = "Username is required";
+      isValid = false;
     } else if (username.length < 3) {
-      errors.username = "Username must be at least 3 characters"
-      isValid = false
+      errors.username = "Username must be at least 3 characters";
+      isValid = false;
     }
 
     // Password validation
     if (!password) {
-      errors.password = "Password is required"
-      isValid = false
+      errors.password = "Password is required";
+      isValid = false;
     } else if (password.length < 6) {
-      errors.password = "Password must be at least 6 characters"
-      isValid = false
+      errors.password = "Password must be at least 6 characters";
+      isValid = false;
     }
 
     // Additional validations for registration
     if (isRegister) {
       // Email validation
       if (!email) {
-        errors.email = "Email is required"
-        isValid = false
+        errors.email = "Email is required";
+        isValid = false;
       } else if (!/\S+@\S+\.\S+/.test(email)) {
-        errors.email = "Email is invalid"
-        isValid = false
+        errors.email = "Email is invalid";
+        isValid = false;
       }
 
       // WhatsApp validation
       if (!whatsapp) {
-        errors.whatsapp = "WhatsApp number is required"
-        isValid = false
+        errors.whatsapp = "WhatsApp number is required";
+        isValid = false;
       } else if (!/^\d{10,15}$/.test(whatsapp)) {
-        errors.whatsapp = "Please enter a valid phone number"
-        isValid = false
+        errors.whatsapp = "Please enter a valid phone number";
+        isValid = false;
       }
 
       // Call number validation
       if (!call) {
-        errors.call = "Call number is required"
-        isValid = false
+        errors.call = "Call number is required";
+        isValid = false;
       } else if (!/^\d{10,15}$/.test(call)) {
-        errors.call = "Please enter a valid phone number"
-        isValid = false
+        errors.call = "Please enter a valid phone number";
+        isValid = false;
       }
     }
 
-    setFormErrors(errors)
-    return isValid
-  }
+    setFormErrors(errors);
+    return isValid;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setSuccess(null)
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
 
     // Validate form before submission
     if (!validateForm()) {
-      return
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
 
     try {
       const res = await api.post(route, {
@@ -124,77 +130,92 @@ const Form = ({ route, method }: FormProps) => {
         email,
         whatsapp,
         call,
-      })
+      });
 
       if (method === "login") {
-        const { access, refresh } = res.data
+        const { access, refresh } = res.data;
         if (!access || !refresh) {
-          throw new Error("Tokens missing in response")
+          throw new Error("Tokens missing in response");
         }
 
-        localStorage.setItem(ACCESS_TOKEN, access)
-        localStorage.setItem(REFRESH_TOKEN, refresh)
-        setIsLoggedIn(true)
-        setSuccess("Login successful! Redirecting...")
+        localStorage.setItem(ACCESS_TOKEN, access);
+        localStorage.setItem(REFRESH_TOKEN, refresh);
+        setIsLoggedIn(true);
+        setSuccess("Login successful! Redirecting...");
 
-        const fcmToken = await token
+        const fcmToken = await token;
+        const isIos =
+          /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+          !("MSStream" in window);
+
         try {
-          api.post("user/create_permission_token/", { token: fcmToken })
+          if (isIos) {
+            api.post("user/create_permission_token/", {
+              subscription: fcmToken,
+            });
+          } else {
+            api.post("user/create_permission_token/", { token: fcmToken });
+          }
         } catch (error) {
-          console.log(error)
+          console.log(error);
         }
 
         // Short delay for success message to be visible
         setTimeout(() => {
-          router.push(url ? `${url}` : "/")
-        }, 1000)
+          router.push(url ? `${url}` : "/");
+        }, 1000);
       } else {
-        setSuccess("Registration successful! Redirecting to login...")
+        setSuccess("Registration successful! Redirecting to login...");
 
         // Short delay for success message to be visible
         setTimeout(() => {
-          router.push("/login")
-        }, 1500)
+          router.push("/login");
+        }, 1500);
       }
     } catch (error: any) {
       // console.error("Form submission error:", error)
 
       // Handle specific error cases
       if (error.response) {
-        console.log(error)
-        const status = error.response.status
-        const data = error.response.data
+        console.log(error);
+        const status = error.response.status;
+        const data = error.response.data;
 
         if (status === 400) {
           // Handle validation errors
           if (data.username) {
-            setError(`Username error: ${data.username[0]}`)
+            setError(`Username error: ${data.username[0]}`);
           } else if (data.password) {
-            setError(`Password error: ${data.password[0]}`)
+            setError(`Password error: ${data.password[0]}`);
           } else if (data.email) {
-            setError(`Email error: ${data.email[0]}`)
+            setError(`Email error: ${data.email[0]}`);
           } else if (data.non_field_errors) {
             // This often contains "incorrect username/password" messages
-            setError(data.non_field_errors[0])
+            setError(data.non_field_errors[0]);
           } else if (data.detail) {
-            setError(data.detail)
+            setError(data.detail);
           } else {
-            setError("Please check your form inputs and try again.")
+            setError("Please check your form inputs and try again.");
           }
         } else if (status === 401) {
-          setError("Incorrect username or password. Please try again.")
-        } else if (status === 409 || (data && data.username && data.username[0].includes("already exists"))) {
-          setError("This username is already taken. Please choose another one.")
+          setError("Incorrect username or password. Please try again.");
+        } else if (
+          status === 409 ||
+          (data && data.username && data.username[0].includes("already exists"))
+        ) {
+          setError(
+            "This username is already taken. Please choose another one."
+          );
         } else {
-          setError("An error occurred. Please try again later.")
+          setError("An error occurred. Please try again later.");
         }
       } else {
-        setError("Network error. Please check your connection and try again.")
+        setError("Network error. Please check your connection and try again.");
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <motion.div
@@ -237,7 +258,10 @@ const Form = ({ route, method }: FormProps) => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Username
               </label>
               <input
@@ -245,9 +269,9 @@ const Form = ({ route, method }: FormProps) => {
                 type="text"
                 value={username}
                 onChange={(e) => {
-                  setUserName(e.target.value)
+                  setUserName(e.target.value);
                   if (formErrors.username) {
-                    setFormErrors({ ...formErrors, username: "" })
+                    setFormErrors({ ...formErrors, username: "" });
                   }
                 }}
                 placeholder="Enter your username"
@@ -255,11 +279,18 @@ const Form = ({ route, method }: FormProps) => {
                   formErrors.username ? "border-red-500" : "border-gray-300"
                 }`}
               />
-              {formErrors.username && <p className="text-red-500 text-xs mt-1">{formErrors.username}</p>}
+              {formErrors.username && (
+                <p className="text-red-500 text-xs mt-1">
+                  {formErrors.username}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Password
               </label>
               <div className="relative">
@@ -268,9 +299,9 @@ const Form = ({ route, method }: FormProps) => {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => {
-                    setPassword(e.target.value)
+                    setPassword(e.target.value);
                     if (formErrors.password) {
-                      setFormErrors({ ...formErrors, password: "" })
+                      setFormErrors({ ...formErrors, password: "" });
                     }
                   }}
                   placeholder="Enter your password"
@@ -287,7 +318,11 @@ const Form = ({ route, method }: FormProps) => {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              {formErrors.password && <p className="text-red-500 text-xs mt-1">{formErrors.password}</p>}
+              {formErrors.password && (
+                <p className="text-red-500 text-xs mt-1">
+                  {formErrors.password}
+                </p>
+              )}
             </div>
 
             {isRegister && (
@@ -298,7 +333,10 @@ const Form = ({ route, method }: FormProps) => {
                 className="space-y-4"
               >
                 <div className="space-y-1">
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Email
                   </label>
                   <input
@@ -306,9 +344,9 @@ const Form = ({ route, method }: FormProps) => {
                     type="email"
                     value={email ?? ""}
                     onChange={(e) => {
-                      setEmail(e.target.value)
+                      setEmail(e.target.value);
                       if (formErrors.email) {
-                        setFormErrors({ ...formErrors, email: "" })
+                        setFormErrors({ ...formErrors, email: "" });
                       }
                     }}
                     placeholder="Enter your email"
@@ -316,11 +354,18 @@ const Form = ({ route, method }: FormProps) => {
                       formErrors.email ? "border-red-500" : "border-gray-300"
                     }`}
                   />
-                  {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
+                  {formErrors.email && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {formErrors.email}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="whatsapp" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="whatsapp"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     WhatsApp Number
                   </label>
                   <input
@@ -328,9 +373,9 @@ const Form = ({ route, method }: FormProps) => {
                     type="tel"
                     value={whatsapp ?? ""}
                     onChange={(e) => {
-                      setWhatsapp(e.target.value)
+                      setWhatsapp(e.target.value);
                       if (formErrors.whatsapp) {
-                        setFormErrors({ ...formErrors, whatsapp: "" })
+                        setFormErrors({ ...formErrors, whatsapp: "" });
                       }
                     }}
                     placeholder="Enter your WhatsApp number"
@@ -338,11 +383,18 @@ const Form = ({ route, method }: FormProps) => {
                       formErrors.whatsapp ? "border-red-500" : "border-gray-300"
                     }`}
                   />
-                  {formErrors.whatsapp && <p className="text-red-500 text-xs mt-1">{formErrors.whatsapp}</p>}
+                  {formErrors.whatsapp && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {formErrors.whatsapp}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="call" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="call"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Call Number
                   </label>
                   <input
@@ -350,9 +402,9 @@ const Form = ({ route, method }: FormProps) => {
                     type="tel"
                     value={call ?? ""}
                     onChange={(e) => {
-                      setCall(e.target.value)
+                      setCall(e.target.value);
                       if (formErrors.call) {
-                        setFormErrors({ ...formErrors, call: "" })
+                        setFormErrors({ ...formErrors, call: "" });
                       }
                     }}
                     placeholder="Enter your call number"
@@ -360,7 +412,11 @@ const Form = ({ route, method }: FormProps) => {
                       formErrors.call ? "border-red-500" : "border-gray-300"
                     }`}
                   />
-                  {formErrors.call && <p className="text-red-500 text-xs mt-1">{formErrors.call}</p>}
+                  {formErrors.call && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {formErrors.call}
+                    </p>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -388,20 +444,24 @@ const Form = ({ route, method }: FormProps) => {
               <>
                 <p className="text-gray-600">
                   Don't have an account?{" "}
-                  <a href="/register" className="text-[#1c2b3a] font-medium hover:underline">
+                  <a
+                    href="/register"
+                    className="text-[#1c2b3a] font-medium hover:underline"
+                  >
                     Register here
                   </a>
                 </p>
                 <p>
-                  <a href="/forgotpassword">
-                    Forgot Password?
-                  </a>
+                  <a href="/forgotpassword">Forgot Password?</a>
                 </p>
               </>
             ) : (
               <p className="text-gray-600">
                 Already have an account?{" "}
-                <a href="/login" className="text-[#1c2b3a] font-medium hover:underline">
+                <a
+                  href="/login"
+                  className="text-[#1c2b3a] font-medium hover:underline"
+                >
                   Login here
                 </a>
               </p>
@@ -410,7 +470,7 @@ const Form = ({ route, method }: FormProps) => {
         </div>
       </div>
     </motion.div>
-  )
-}
+  );
+};
 
-export default Form
+export default Form;

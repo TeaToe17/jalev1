@@ -35,4 +35,3 @@ def send_email(to_email, subject, message):
                 time.sleep(2)
             else:
                 print("All retry attempts failed.")
-

@@ -24,6 +24,8 @@ from .serializers import CustomTokenObtainPairSerializer, PermissionTokenSeriali
 from .models import UserFCMToken, Message, CustomUser, ChatPreview
 from product.tasks import browser_notify
 
+load_dotenv()
+
 class CreateUserView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = UserSerializer 
@@ -57,7 +59,8 @@ class UserFCMTokenView(generics.CreateAPIView):
             print("🔴 Serializer Errors:", serializer.errors)
             return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-        token_value = serializer.validated_data["token"]
+        token_value = serializer.validated_data.get("token")
+        sub_value = serializer.validated_data.get("subscription")
         user = request.user
 
         # Check for duplication
@@ -65,6 +68,10 @@ class UserFCMTokenView(generics.CreateAPIView):
             print("🟡 Token already exists for user")
             return Response({"message": "Token already exists for user"}, status=status.HTTP_200_OK)
 
+        elif UserFCMToken.objects.filter(user=user, subscription=sub_value).exists():
+            print("🟡 Subscription already exists for user")
+            return Response({"message": "Subscription already exists for user"}, status=status.HTTP_200_OK)
+        
         # Save if not duplicate
         serializer.save(user=user)
         print("✅ Token saved for user")
@@ -190,14 +197,23 @@ class MessageRemindView(APIView):
         receiver_id = request.data.get("receiver_id")
 
         def delayed_email_check(incoming_message, receiver_id):
+            receiver = CustomUser.objects.get(id=receiver_id)
+            msg = Message.objects.filter(
+                content=incoming_message,
+                receiver_id=receiver.id,
+            ).order_by("-timestamp").first()
+
+            time.sleep(2 * 60)
+            try:
+                msg = Message.objects.filter(id=msg.id).first()
+                if msg and not msg.read:
+                    browser_notify(receiver.id, "You have an unread message", msg.content, str(f"https://{os.getenv('JALE_DYNAMIC_URL')}/chat/{msg.sender.id}"))
+            except Exception as e:
+                print(f"Error in push notification sending: {e}")
+
             time.sleep(3 * 60)
             try:
-                receiver = CustomUser.objects.get(id=receiver_id)
-                msg = Message.objects.filter(
-                    content=incoming_message,
-                    receiver_id=receiver.id
-                ).order_by("-timestamp").first()
-
+                msg = Message.objects.filter(id=msg.id).first()
                 if msg and not msg.read:
                     send_email(receiver.email, "You have an unread message", 
                                f"""{msg.content}
@@ -205,6 +221,7 @@ class MessageRemindView(APIView):
                                 """)
             except Exception as e:
                 print(f"Error in email sending: {e}")
+
 
         threading.Thread(target=delayed_email_check, args=(incoming_message, receiver_id)).start()
 

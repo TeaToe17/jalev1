@@ -3,17 +3,14 @@
 
 # from django.utils.timezone import now
 # from datetime import timedelta
-import logging
-import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-# from django.apps import apps
 from user.models import UserFCMToken
 from firebase_admin import get_app, messaging
-import os
 from dotenv import load_dotenv
 from django.conf import settings
-import time
+from pywebpush import webpush, WebPushException
+import time, json, logging, smtplib, os
 
 
 load_dotenv()
@@ -54,113 +51,119 @@ logger = logging.getLogger(__name__)
 
 def browser_notify(user_id, subject, message, url):
     """
-    Enhanced notification function with better error handling and payload structure
+    Sends notification to user via Firebase (FCM) or WebPush (Apple/Safari).
+    Automatically detects token type.
+    Sequential execution; failures in one path don't block the other.
     """
     logger.info(f"Sending notification: user_id={user_id}, subject={subject}, message={message}, url={url}")
-    
-    # Firebase initialization check
+
     try:
         app = get_app()
         logger.info(f"Firebase Admin app initialized: {app.name}")
     except ValueError as e:
         logger.error(f"Firebase Admin not initialized: {e}")
-        return {
-            "status": "FAILED",
-            "error": "Firebase not initialized"
-        }
-    
-    try:        
-        tokens = UserFCMToken.objects.filter(user__id=user_id).values_list('token', flat=True)
-        
-        if not tokens:
-            logger.warning(f"No FCM tokens found for user ID {user_id}")
-            return {
-                "status": "FAILED",
-                "error": "No FCM tokens found"
-            }
-        
+        return {"status": "FAILED", "error": "Firebase not initialized"}
+
+    try:
+        user_tokens = UserFCMToken.objects.filter(user__id=user_id)
+        if not user_tokens.exists():
+            logger.warning(f"No FCM/WebPush tokens found for user ID {user_id}")
+            return {"status": "FAILED", "error": "No tokens found"}
+
         successful_sends = 0
         failed_sends = 0
-        
-        for user_token in tokens:
-            try:
-                # Create message with both notification and data payloads
-                message_obj = messaging.Message(
-                    # Notification payload - shows even when app is closed
-                    notification=messaging.Notification(
-                        title=subject,
-                        body=message,
-                        image=url if url and url.endswith(('.jpg', '.png', '.gif')) else None
-                    ),
-                    # Data payload - available in service worker
-                    data={
+
+        for user_token in user_tokens:
+            sent = False  # track success per token entry
+
+            # -------------------------
+            # Safari / WebPush path
+            # -------------------------
+            if user_token.subscription:
+                try:
+                    logger.info(f"Sending WebPush to user {user_id}")
+                    payload = {
                         "title": subject,
                         "body": message,
                         "url": url or "",
                         "timestamp": str(int(time.time())),
-                        "click_action": url or ""
-                    },
-                    # Web push specific options
-                    webpush=messaging.WebpushConfig(
-                        notification=messaging.WebpushNotification(
+                    }
+                    webpush(
+                        subscription_info=user_token.subscription,
+                        data=json.dumps(payload),
+                        vapid_private_key=settings.WEBPUSH_VAPID_PRIVATE_KEY,
+                        vapid_claims=settings.WEBPUSH_VAPID_CLAIMS,
+                    )
+                    successful_sends += 1
+                    sent = True
+                except WebPushException as e:
+                    logger.error(f"WebPush failed for user {user_id}: {repr(e)}")
+                    failed_sends += 1
+                except Exception as e:
+                    logger.error(f"Unexpected WebPush error: {e}", exc_info=True)
+                    failed_sends += 1
+
+            # -------------------------
+            # FCM path (Android / Chrome)
+            # -------------------------
+            if user_token.token:
+                try:
+                    message_obj = messaging.Message(
+                        notification=messaging.Notification(
                             title=subject,
                             body=message,
-                            icon="/logo.png",
-                            badge="/badge-icon.png",
-                            tag="notification-tag",
-                            require_interaction=True,
-                            actions=[
-                                messaging.WebpushNotificationAction(
-                                    action="open",
-                                    title="Open"
-                                ),
-                                messaging.WebpushNotificationAction(
-                                    action="close", 
-                                    title="Close"
-                                )
-                            ],
-                            data={
-                                "url": url or "",
-                                "timestamp": str(int(time.time()))
-                            }
+                            image=url if url and url.endswith(('.jpg', '.png', '.gif')) else None,
                         ),
-                        fcm_options=messaging.WebpushFCMOptions(
-                            link=url
-                        )
-                    ),
-                    token=user_token
-                )
-                
-                response = messaging.send(message_obj)
-                logger.info(f"Notification sent successfully: {response}")
-                successful_sends += 1
-                
-            except messaging.UnregisteredError:
-                logger.warning(f"Token is unregistered, removing: {user_token}")
-                # Remove invalid token from database
-                UserFCMToken.objects.filter(token=user_token).delete()
-                failed_sends += 1
-                
-            except messaging.InvalidArgumentError as e:
-                logger.error(f"Invalid argument for token {user_token}: {e}")
-                failed_sends += 1
-                
-            except Exception as e:
-                logger.error(f"Error sending to token {user_token}: {e}")
-                failed_sends += 1
-        
+                        data={
+                            "title": subject,
+                            "body": message,
+                            "url": url or "",
+                            "timestamp": str(int(time.time())),
+                            "click_action": url or "",
+                        },
+                        webpush=messaging.WebpushConfig(
+                            notification=messaging.WebpushNotification(
+                                title=subject,
+                                body=message,
+                                icon="/logo.png",
+                                badge="/badge-icon.png",
+                                tag="notification-tag",
+                                require_interaction=True,
+                                actions=[
+                                    messaging.WebpushNotificationAction(action="open", title="Open"),
+                                    messaging.WebpushNotificationAction(action="close", title="Close"),
+                                ],
+                                data={"url": url or "", "timestamp": str(int(time.time()))},
+                            ),
+                            fcm_options=messaging.WebpushFCMOptions(link=url),
+                        ),
+                        token=user_token.token,
+                    )
+
+                    response = messaging.send(message_obj)
+                    logger.info(f"FCM notification sent successfully: {response}")
+                    successful_sends += 1
+                    sent = True
+
+                except messaging.UnregisteredError:
+                    logger.warning(f"Unregistered FCM token, removing: {user_token.token}")
+                    user_token.delete()
+                    failed_sends += 1
+                except Exception as e:
+                    logger.error(f"Error sending FCM notification: {e}", exc_info=True)
+                    failed_sends += 1
+
+            if not sent:
+                logger.warning(f"No valid send path succeeded for token entry: {user_token.id}")
+
         return {
             "status": "SENT" if successful_sends > 0 else "FAILED",
             "subject": subject,
             "successful_sends": successful_sends,
             "failed_sends": failed_sends,
-            "total_tokens": len(tokens)
+            "total_tokens": user_tokens.count(),
         }
-        
+
     except Exception as e:
-        logger.error(f"Error in browser_notify: {e}", exc_info=True)
-        return {
-            "status": "FAILED",
-            "subject": subject,
-            "error": str(e)
-        }
+        logger.error(f"Unexpected error in browser_notify: {e}", exc_info=True)
+        return {"status": "FAILED", "error": str(e)}

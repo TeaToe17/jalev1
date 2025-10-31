@@ -48,8 +48,6 @@ def send_product_notifications(product_id):
         # Send notifications to interested users
         for user_data in interested_users:
             try:
-                # Send email notification
-                send_email(user_data['email'], subject, message)
                 # Send browser notification
                 browser_notify(user_data['id'], subject2, message, url)
             except Exception as e:

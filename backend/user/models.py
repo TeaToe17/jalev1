@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 import time
-import send_email
 import threading
 
 
@@ -21,7 +20,8 @@ class CustomUser(AbstractUser):
 
 class UserFCMToken(models.Model):
     user = models.ForeignKey("user.CustomUser", on_delete=models.CASCADE, related_name="fcm_tokens", null=True)
-    token = models.TextField()
+    token = models.TextField(null=True, blank=True)
+    subscription = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -39,25 +39,6 @@ class Message(models.Model):
         if self._state.adding:  # only on create
             self.read = False
         super().save(*args, **kwargs)
-
-        # # Run this after save in a separate thread
-        # def delayed_unread_check():
-        #     time.sleep(1 * 60)  # sleep for 2 minutes
-        #     try:
-        #         print("before read")
-        #         saved_obj = self.__class__.objects.get(pk=self.pk)
-        #         print(saved_obj.read)
-
-        #         if not saved_obj.read:
-        #             print("after read")
-        #             receiver = saved_obj.receiver
-        #             if saved_obj.receiver and saved_obj.content:
-        #                 send_email(receiver.email, "You Have an Unread Message", saved_obj.content)
-        #     except Message.DoesNotExist:
-        #         pass
-
-        # thread = threading.Thread(target=delayed_unread_check)
-        # thread.start()
 
 
 class ChatPreview(models.Model):

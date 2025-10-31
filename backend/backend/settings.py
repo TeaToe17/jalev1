@@ -318,3 +318,9 @@ EMAIL_USE_TLS = False
 EMAIL_USE_SSL = True
 EMAIL_HOST_USER = 'jale.official.contact@gmail.com'
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")  # Use App Password if 2FA is enabled
+
+
+
+WEBPUSH_VAPID_PUBLIC_KEY =os.getenv("JALE_WEBPUSH_VAPID_PUBLIC_KEY")
+WEBPUSH_VAPID_PRIVATE_KEY = os.getenv("JALE_WEBPUSH_VAPID_PRIVATE_KEY")
+WEBPUSH_VAPID_CLAIMS = {"sub": "mailto:jale.official.contact@gmail.com"}

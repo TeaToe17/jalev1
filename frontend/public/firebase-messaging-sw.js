@@ -1,85 +1,45 @@
-/* firebase-messaging-sw.js - Service Worker for FCM Background Messages */
+/* ==========================================================
+   Firebase Messaging Service Worker - Unified Version
+   Works for both FCM (Android/Chrome) and WebPush (Safari/iOS)
+   ========================================================== */
 
 /* Import Firebase compat libraries */
 importScripts("https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js")
 importScripts("https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js")
-
-/* Declare Firebase variable */
-const firebase = self.firebase
 
 /* Firebase configuration */
 const firebaseConfig = {
   apiKey: "AIzaSyD5LN2IpcCY8RpwCVRxeV8X9trBWAnZGgg",
   authDomain: "bookit-83750.firebaseapp.com",
   projectId: "bookit-83750",
-  // storageBucket: "bookit-83750.firebasestorage.app",
   storageBucket: "bookit-83750.appspot.com",
   messagingSenderId: "244206413621",
   appId: "1:244206413621:web:4b6ce1f09659632d590e7c",
   measurementId: "G-0NHM7Z1VPZ",
 }
 
+/* Initialize Firebase */
 firebase.initializeApp(firebaseConfig)
 const messaging = firebase.messaging()
 
-/* Helper to show notification from payload */
-async function showNotificationFromPayload(payload) {
-  console.log("[SW] Received payload:", payload)
+console.log("[SW] Firebase Messaging Service Worker loaded")
 
-  // Extract notification data - FCM sends it in different structures
-  const notificationData = payload.notification || {}
-  const dataPayload = payload.data || {}
-
-  const title = notificationData.title || dataPayload.title || "New Notification"
-  const body = notificationData.body || dataPayload.body || "You have a new message"
-  const icon = notificationData.icon || dataPayload.icon || "/jale logo.png"
-  const url = dataPayload.url || dataPayload.click_action || payload.fcmOptions?.link || "/"
-  const tag = dataPayload.tag || `jale-notification-${Date.now()}`
-
-  const options = {
-    body,
-    icon,
-    badge: "/jale logo.png",
-    tag,
-    requireInteraction: true,
-    vibrate: [200, 100, 200],
-    data: {
-      url,
-      timestamp: Date.now(),
-      originalPayload: payload,
-    },
-    actions: [
-      { action: "open", title: "Open" },
-      { action: "close", title: "Dismiss" },
-    ],
-  }
-
-  // Show the notification
-  return self.registration.showNotification(title, options)
-}
-
-/* PRIMARY: Firebase background message handler */
-messaging.onBackgroundMessage(async (payload) => {
-  console.log("[SW] Background message received:", payload)
-
-  if (Notification.permission !== "granted") {
-    console.error("[SW] Notification permission not granted")
-    return
-  }
-
-  try {
-    await showNotificationFromPayload(payload)
-  } catch (error) {
-    console.error("[SW] Error showing notification:", error)
-  }
+/* ==========================================================
+   🔇 Disable FCM’s built-in background message notification
+   ========================================================== */
+messaging.onBackgroundMessage((payload) => {
+  console.log("[SW] Firebase background message suppressed — using unified push handler only.", payload)
 })
 
-/* FALLBACK: Raw push event listener */
+/* ==========================================================
+   🔔 Unified Push Event Listener
+   Handles both WebPush (Safari/iOS) and FCM (Android/Chrome)
+   ========================================================== */
 self.addEventListener("push", (event) => {
-  console.log("[SW] Push event received", event)
+  console.log("[SW] Push event received")
 
   if (!event.data) {
-    console.log("[SW] Push event has no data")
+    console.warn("[SW] Push event has no data")
     return
   }
 
@@ -88,88 +48,106 @@ self.addEventListener("push", (event) => {
     payload = event.data.json()
     console.log("[SW] Parsed push payload:", payload)
   } catch (error) {
-    console.error("[SW] Error parsing push data:", error)
-    const textData = event.data.text()
+    console.error("[SW] Error parsing push payload:", error)
     payload = {
-      notification: {
-        title: "New Notification",
-        body: textData || "You have a new notification",
-      },
+      notification: { title: "New Notification", body: event.data.text() || "You have a new message" },
       data: {},
     }
   }
 
+  const notification = payload.notification || {}
+  const data = payload.data || {}
+
+  const title = notification.title || data.title || "New Notification"
+  const body = notification.body || data.body || "You have a new message"
+  const icon = notification.icon || data.icon || "/jale logo.png"
+  const badge = "/jale logo.png"
+  const url = data.url || data.click_action || payload.fcmOptions?.link || "/"
+  const tag = data.tag || "jale-unified-notification"
+
+  const options = {
+    body,
+    icon,
+    badge,
+    tag,
+    requireInteraction: true,
+    vibrate: [200, 100, 200],
+    data: {
+      url,
+      timestamp: Date.now(),
+    },
+    actions: [
+      { action: "open", title: "Open" },
+      { action: "close", title: "Dismiss" },
+    ],
+  }
+
+  // Display notification
   event.waitUntil(
-    showNotificationFromPayload(payload)
-      .then(() => console.log("[SW] Push notification shown successfully"))
-      .catch((err) => console.error("[SW] Error showing push:", err)),
+    self.registration.showNotification(title, options).then(() => {
+      console.log("[SW] Notification displayed successfully")
+    })
   )
 })
 
-/* Notification click handler */
+/* ==========================================================
+   🖱️ Notification Click Handling
+   Focuses existing window or opens a new one
+   ========================================================== */
 self.addEventListener("notificationclick", (event) => {
   console.log("[SW] Notification clicked:", event.action)
-
   event.notification.close()
 
-  if (event.action === "close") {
-    return
-  }
+  if (event.action === "close") return
 
-  const urlToOpen = event.notification.data?.url || "/"
+  const targetUrl = event.notification.data?.url || "/"
 
   event.waitUntil(
     clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((clientList) => {
-        // Try to find an existing window with matching URL
+        // Focus existing tab if same URL
         for (const client of clientList) {
           try {
             const clientUrl = new URL(client.url)
-            const targetUrl = new URL(urlToOpen, self.location.origin)
-
-            if (clientUrl.pathname === targetUrl.pathname) {
-              return client.focus()
-            }
-          } catch (err) {
-            console.error("[SW] Error parsing client URL:", err)
+            const target = new URL(targetUrl, self.location.origin)
+            if (clientUrl.pathname === target.pathname) return client.focus()
+          } catch (e) {
+            console.warn("[SW] Error matching client URL:", e)
           }
         }
-
-        // No matching window found, open new one
-        if (clients.openWindow) {
-          return clients.openWindow(urlToOpen)
-        }
+        // Otherwise open a new one
+        return clients.openWindow(targetUrl)
       })
-      .catch((err) => console.error("[SW] Error handling click:", err)),
+      .catch((e) => console.error("[SW] Error handling click:", e))
   )
 })
 
-/* Service Worker lifecycle */
+/* ==========================================================
+   ⚙️ Lifecycle Management (Install / Activate)
+   ========================================================== */
 self.addEventListener("install", (event) => {
-  console.log("[SW] Service Worker installing")
+  console.log("[SW] Installing new service worker...")
   self.skipWaiting()
 })
 
 let keepAliveInterval
 self.addEventListener("activate", (event) => {
-  console.log("[SW] Service Worker activating")
+  console.log("[SW] Activating service worker...")
   event.waitUntil(
     self.clients.claim().then(() => {
-      // Start keepalive ping every 20 seconds
       if (keepAliveInterval) clearInterval(keepAliveInterval)
-      keepAliveInterval = setInterval(() => {
-        console.log("[SW] Keepalive ping")
-      }, 20000)
-    }),
+      keepAliveInterval = setInterval(() => console.log("[SW] Keepalive ping"), 20000)
+    })
   )
 })
 
+/* ==========================================================
+   💬 Message Listener (for PING/PONG checks)
+   ========================================================== */
 self.addEventListener("message", (event) => {
   console.log("[SW] Message received:", event.data)
-  if (event.data && event.data.type === "PING") {
+  if (event.data?.type === "PING") {
     event.ports[0].postMessage({ type: "PONG", timestamp: Date.now() })
   }
 })
-
-console.log("[SW] Firebase Messaging Service Worker loaded")

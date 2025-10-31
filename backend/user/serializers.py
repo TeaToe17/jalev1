@@ -69,7 +69,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class PermissionTokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserFCMToken
-        fields = ["token"]
+        fields = ["token", "subscription"]
 
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:

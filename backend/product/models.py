@@ -1,10 +1,12 @@
 from django.db import models
 from django.utils.timezone import now
 
-import math
-from decimal import Decimal
+import os
+from dotenv import load_dotenv
 
-from .tasks import send_email
+from .tasks import send_email, browser_notify
+
+load_dotenv()
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -61,7 +63,9 @@ class Product(models.Model):
                             Buyer's Whatsapp line: {self.request.owner.whatsapp},
                             Buyer's Call line: {self.request.owner.call} 
                             """
-                send_email("titobiloluwaa83@gmail.com", subject, message)
+                # send_email("titobiloluwaa83@gmail.com", subject, message)
+                url = os.getenv("JALE_BACKEND_URL")
+                browser_notify(2,subject,message,url)
             except Exception as e:
                 print(f"Email send failed for product {self.name}: {str(e)}")
 
