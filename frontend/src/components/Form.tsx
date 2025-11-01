@@ -154,7 +154,9 @@ const Form = ({ route, method }: FormProps) => {
               subscription: fcmToken,
             });
           } else {
-            api.post("user/create_permission_token/", { token: fcmToken });
+            api.post("user/create_permission_token/", {
+              token: JSON.stringify(fcmToken),
+            });
           }
         } catch (error) {
           console.log(error);

@@ -51,13 +51,22 @@ export const fetchToken = async () => {
       const vapidKey = process.env.NEXT_PUBLIC_WEBPUSH_VAPID_KEY;
       if (!vapidKey) throw new Error("VAPID public key is missing!");
 
+      if (!("standalone" in navigator) || !navigator.standalone) {
+        alert("Please install the PWA to receive notifications on iOS.");
+        return;
+      }
+
       const sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
 
-      console.log("Apple Push API subscription:", sub);
-      return sub; // This is an Apple Push Subscription object
+      if (!sub) {
+        console.warn("Push subscription failed — got null");
+        return null;
+      }
+      console.log("Apple Push API subscription:", sub.toJSON());
+      return sub.toJSON(); // This is an Apple Push Subscription object
     }
 
     const fcmMessaging = await messaging();

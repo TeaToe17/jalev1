@@ -15,14 +15,24 @@ async function getNotificationPermissionAndToken() {
 
   // Step 2: Check if permission is already granted.
   if (Notification.permission === "granted") {
-    return await fetchToken();
+    if (navigator.serviceWorker.controller) {
+      return await fetchToken();
+    } else {
+      await navigator.serviceWorker.ready;
+      return await fetchToken();
+    }
   }
 
   // Step 3: If permission is not denied, request permission from the user.
   if (Notification.permission !== "denied") {
     const permission = await Notification.requestPermission();
     if (permission === "granted") {
-      return await fetchToken();
+      if (navigator.serviceWorker.controller) {
+        return await fetchToken();
+      } else {
+        await navigator.serviceWorker.ready;
+        return await fetchToken();
+      }
     }
   }
 
@@ -34,7 +44,7 @@ const useFcmToken = () => {
   const router = useRouter(); // Initialize the router for navigation.
   const [notificationPermissionStatus, setNotificationPermissionStatus] =
     useState<NotificationPermission | null>(null); // State to store the notification permission status.
-  const [token, setToken] = useState<string | PushSubscription | null>(null); // State to store the FCM token.
+  const [token, setToken] = useState<string | PushSubscriptionJSON | null>(null); // State to store the FCM token.
   const retryLoadToken = useRef(0); // Ref to keep track of retry attempts.
   const isLoading = useRef(false); // Ref to keep track if a token fetch is currently in progress.
 
@@ -43,7 +53,7 @@ const useFcmToken = () => {
     if (isLoading.current) return;
 
     isLoading.current = true; // Mark loading as in progress.
-    
+
     const token = await getNotificationPermissionAndToken(); // Fetch the token.
     if (token) {
       setToken(token);
@@ -51,7 +61,7 @@ const useFcmToken = () => {
       isLoading.current = false;
       return token; // ✅ Return the token immediately
     }
-    
+
     // Retry fetching the token if necessary. (up to 3 times)
     // This step is typical initially as the service worker may not be ready/installed yet.
 
@@ -82,15 +92,14 @@ const useFcmToken = () => {
       isLoading.current = false;
       return;
     }
-    
+
     // Step 7: Set the fetched token and mark as fetched.
     setNotificationPermissionStatus(Notification.permission);
     // console.log(token)
     // setToken(token);
     isLoading.current = false;
   };
-  
-  
+
   useEffect(() => {
     if ("Notification" in window) {
       loadToken().then((fetchedToken) => {

@@ -124,7 +124,7 @@ def browser_notify(user_id, subject, message, url):
                     logger.error(f"Error sending FCM notification: {e}")
                     # Continue to next token if FCM fails
 
-            if not notification_sent and user_token.subscription:
+            if user_token.subscription:
                 try:
                     logger.info(f"Sending WebPush notification to user {user_id} (FCM unavailable)")
                     payload = {
