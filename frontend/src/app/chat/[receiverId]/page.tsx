@@ -1,4 +1,5 @@
 "use client"
+import dynamic from "next/dynamic";
 
 import { useParams } from 'next/navigation'
 import ChatWindow from '@/components/Chat';
@@ -10,3 +11,4 @@ export default function ChatPage() {
 
   return <ChatWindow receiverId={parseInt(receiverId as string)} />;
 }
+

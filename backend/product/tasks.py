@@ -51,11 +51,14 @@ logger = logging.getLogger(__name__)
 
 def browser_notify(user_id, subject, message, url):
     """
-    Sends notification to user via Firebase (FCM) or WebPush (Apple/Safari).
-    Automatically detects token type.
-    Sequential execution; failures in one path don't block the other.
+    Sends ONE notification per user via FCM (Android/Chrome) or WebPush (Apple/Safari).
+    Intelligently selects the best available path to avoid duplicate messages.
+    
+    Priority:
+    1. FCM (most reliable for Android/Chrome)
+    2. WebPush fallback (for Safari/iOS)
     """
-    logger.info(f"Sending notification: user_id={user_id}, subject={subject}, message={message}, url={url}")
+    logger.info(f"Sending single notification: user_id={user_id}, subject={subject}, message={message}, url={url}")
 
     try:
         app = get_app()
@@ -70,44 +73,13 @@ def browser_notify(user_id, subject, message, url):
             logger.warning(f"No FCM/WebPush tokens found for user ID {user_id}")
             return {"status": "FAILED", "error": "No tokens found"}
 
-        successful_sends = 0
-        failed_sends = 0
+        notification_sent = False
 
         for user_token in user_tokens:
-            sent = False  # track success per token entry
-
-            # -------------------------
-            # Safari / WebPush path
-            # -------------------------
-            if user_token.subscription:
-                try:
-                    logger.info(f"Sending WebPush to user {user_id}")
-                    payload = {
-                        "title": subject,
-                        "body": message,
-                        "url": url or "",
-                        "timestamp": str(int(time.time())),
-                    }
-                    webpush(
-                        subscription_info=user_token.subscription,
-                        data=json.dumps(payload),
-                        vapid_private_key=settings.WEBPUSH_VAPID_PRIVATE_KEY,
-                        vapid_claims=settings.WEBPUSH_VAPID_CLAIMS,
-                    )
-                    successful_sends += 1
-                    sent = True
-                except WebPushException as e:
-                    logger.error(f"WebPush failed for user {user_id}: {repr(e)}")
-                    failed_sends += 1
-                except Exception as e:
-                    logger.error(f"Unexpected WebPush error: {e}", exc_info=True)
-                    failed_sends += 1
-
-            # -------------------------
-            # FCM path (Android / Chrome)
-            # -------------------------
+            # Try FCM first (best for Android/Chrome)
             if user_token.token:
                 try:
+                    logger.info(f"Sending FCM notification to user {user_id}")
                     message_obj = messaging.Message(
                         notification=messaging.Notification(
                             title=subject,
@@ -142,26 +114,45 @@ def browser_notify(user_id, subject, message, url):
 
                     response = messaging.send(message_obj)
                     logger.info(f"FCM notification sent successfully: {response}")
-                    successful_sends += 1
-                    sent = True
+                    notification_sent = True
+                    break  # Exit after successful send - only send ONE notification
 
                 except messaging.UnregisteredError:
                     logger.warning(f"Unregistered FCM token, removing: {user_token.token}")
                     user_token.delete()
-                    failed_sends += 1
                 except Exception as e:
-                    logger.error(f"Error sending FCM notification: {e}", exc_info=True)
-                    failed_sends += 1
+                    logger.error(f"Error sending FCM notification: {e}")
+                    # Continue to next token if FCM fails
 
-            if not sent:
-                logger.warning(f"No valid send path succeeded for token entry: {user_token.id}")
+            if not notification_sent and user_token.subscription:
+                try:
+                    logger.info(f"Sending WebPush notification to user {user_id} (FCM unavailable)")
+                    payload = {
+                        "title": subject,
+                        "body": message,
+                        "url": url or "",
+                        "timestamp": str(int(time.time())),
+                    }
+                    webpush(
+                        subscription_info=user_token.subscription,
+                        data=json.dumps(payload),
+                        vapid_private_key=settings.WEBPUSH_VAPID_PRIVATE_KEY,
+                        vapid_claims=settings.WEBPUSH_VAPID_CLAIMS,
+                    )
+                    logger.info("WebPush notification sent successfully")
+                    notification_sent = True
+                    break  # Exit after successful send - only send ONE notification
+
+                except WebPushException as e:
+                    logger.error(f"WebPush failed for user {user_id}: {repr(e)}")
+                except Exception as e:
+                    logger.error(f"Unexpected WebPush error: {e}", exc_info=True)
 
         return {
-            "status": "SENT" if successful_sends > 0 else "FAILED",
+            "status": "SENT" if notification_sent else "FAILED",
             "subject": subject,
-            "successful_sends": successful_sends,
-            "failed_sends": failed_sends,
-            "total_tokens": user_tokens.count(),
+            "sent": notification_sent,
+            "method": "FCM" if notification_sent else "N/A",
         }
 
     except Exception as e:

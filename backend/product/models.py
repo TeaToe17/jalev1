@@ -63,7 +63,6 @@ class Product(models.Model):
                             Buyer's Whatsapp line: {self.request.owner.whatsapp},
                             Buyer's Call line: {self.request.owner.call} 
                             """
-                # send_email("titobiloluwaa83@gmail.com", subject, message)
                 url = os.getenv("JALE_BACKEND_URL")
                 browser_notify(2,subject,message,url)
             except Exception as e:
@@ -78,5 +77,24 @@ class Product(models.Model):
 
         super().save(*args, **kwargs)
 
+    def format_whatsapp_link(self, number: str) -> str:
+        """
+        Convert a phone number into a WhatsApp-compatible URL.
+        Replaces leading '0' with '234' (Nigeria code).
+        """
+        if not number:
+            return ""
+        number = number.strip()
+        if number.startswith("0"):
+            number = "234" + number[1:]
+        return f"https://wa.me/{number}"
+
     def __str__(self):
-        return f"{self.name} - {self.owner.username} - {self.created}"
+        """
+        Show concise but informative summary in admin/list views.
+        """
+        return (
+            f"{self.name} | ₦{self.price} | "
+            f"Owner: {self.owner.username} ({self.format_whatsapp_link(self.owner.whatsapp)}) | "
+            f"Created: {self.created.strftime('%Y-%m-%d %H:%M')}"
+        )

@@ -203,25 +203,13 @@ class MessageRemindView(APIView):
                 receiver_id=receiver.id,
             ).order_by("-timestamp").first()
 
-            time.sleep(2 * 60)
+            time.sleep(5 * 60)
             try:
                 msg = Message.objects.filter(id=msg.id).first()
                 if msg and not msg.read:
                     browser_notify(receiver.id, "You have an unread message", msg.content, str(f"https://{os.getenv('JALE_DYNAMIC_URL')}/chat/{msg.sender.id}"))
             except Exception as e:
                 print(f"Error in push notification sending: {e}")
-
-            time.sleep(3 * 60)
-            try:
-                msg = Message.objects.filter(id=msg.id).first()
-                if msg and not msg.read:
-                    send_email(receiver.email, "You have an unread message", 
-                               f"""{msg.content}
-                                    Check here: https://jale.vercel.app/
-                                """)
-            except Exception as e:
-                print(f"Error in email sending: {e}")
-
 
         threading.Thread(target=delayed_email_check, args=(incoming_message, receiver_id)).start()
 
