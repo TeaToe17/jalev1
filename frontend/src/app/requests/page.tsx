@@ -137,7 +137,7 @@ const Requests = () => {
   };
 
   // Animation variants
-  const containerVariants : Variants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
@@ -147,7 +147,7 @@ const Requests = () => {
     },
   };
 
-  const itemVariants : Variants = {
+  const itemVariants: Variants = {
     hidden: { y: 20, opacity: 0 },
     visible: {
       y: 0,
@@ -410,7 +410,8 @@ const Requests = () => {
                 <div className="relative h-48 w-full bg-gray-100">
                   <Image
                     src={
-                      request.image || "/placeholder.svg?height=200&width=300"
+                      `${request.image}?tr=w-600,q-85,f-auto` ||
+                      "/placeholder.svg?height=200&width=300"
                     }
                     alt={request.name}
                     fill

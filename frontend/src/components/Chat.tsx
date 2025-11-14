@@ -16,6 +16,7 @@ import { connectToChat, fetchProducts, fetchUser, LoggedIn } from "@/lib/utils";
 import api from "@/lib/api";
 import { useAppContext } from "@/context";
 import { useRouter, usePathname } from "next/navigation";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 interface ChatProps {
   receiverId: number;
@@ -84,12 +85,13 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   const [currentUser, setCurrentUser] = useState<CustomUser | null>(null);
   const [showDiv, setShowDiv] = useState(true);
   const [lastMessage, setLastMessage] = useState<string>("");
+  const [isHydrated, setIsHydrated] = useState(false);
+  const { sendTestNotification } = usePushNotifications();
   const [productDetails, setProductDetails] = useState({
     productImage: "",
     productName: "",
     productPrice: 0,
   });
-  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -167,6 +169,12 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
       .catch((err) => {
         console.error("Non-blocking request failed", err);
       });
+
+    try {
+      sendTestNotification({ receiverId: receiverId, body: message });
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   useEffect(() => {
@@ -219,27 +227,33 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     fetchHistory();
 
     let socket: WebSocket | null = null;
+    let isUnmounted = false;
 
-    try {
-      socket = currentProduct
-        ? connectToChat(receiverId, currentProduct.id, currentProduct.owner)
-        : connectToChat(receiverId);
+    const setupConnection = async () => {
+      try {
+        socket = currentProduct
+          ? await connectToChat(
+              receiverId,
+              currentProduct.id,
+              currentProduct.owner
+            )
+          : await connectToChat(receiverId);
 
-      if (socket) {
+        if (!socket || isUnmounted) return;
+
         setWs(socket);
 
         socket.onmessage = (e) => {
           const data = JSON.parse(e.data);
           console.log(data);
 
-          if (data.scope == "group") {
+          if (data.scope === "group") {
             setPendingMessages((prev) =>
               prev.filter(
                 (msg) =>
                   !(msg.text === data.text && msg.sender_id === data.sender_id)
               )
             );
-
             setMessages((prev) => [...prev, data]);
           }
 
@@ -268,22 +282,28 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
 
         socket.onopen = () => {
           setError(null);
+          console.log("WebSocket connected successfully");
         };
 
         socket.onerror = () => {
-          // error handling
+          console.error("WebSocket error occurred");
         };
 
         socket.onclose = () => {
           console.log("WebSocket connection closed");
         };
+      } catch (err) {
+        console.error("WebSocket connection failed", err);
+        if (!isUnmounted) {
+          setError("Failed to connect to chat. Please refresh the page.");
+        }
       }
-    } catch (err) {
-      console.error("WebSocket connection failed", err);
-      setError("Failed to connect to chat. Please refresh the page.");
-    }
+    };
+
+    setupConnection();
 
     return () => {
+      isUnmounted = true;
       if (
         socket &&
         (socket.readyState === WebSocket.OPEN ||

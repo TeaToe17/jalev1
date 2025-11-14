@@ -13,6 +13,7 @@ from rest_framework.parsers import MultiPartParser
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from dotenv import load_dotenv
 import os
 
@@ -22,7 +23,7 @@ from send_email import send_email
 
 from .serializers import CustomTokenObtainPairSerializer, PermissionTokenSerializer, MessageSerializer, UserSerializer, ChatPreviewSerializer, PasswordResetSerializer, MessageBooleanSerializer
 from .models import UserFCMToken, Message, CustomUser, ChatPreview
-from product.tasks import browser_notify
+from product.tasks import send_notification
 
 load_dotenv()
 
@@ -59,23 +60,26 @@ class UserFCMTokenView(generics.CreateAPIView):
             print("🔴 Serializer Errors:", serializer.errors)
             return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-        token_value = serializer.validated_data.get("token")
         sub_value = serializer.validated_data.get("subscription")
         user = request.user
 
         # Check for duplication
-        if UserFCMToken.objects.filter(user=user, token=token_value).exists():
-            print("🟡 Token already exists for user")
-            return Response({"message": "Token already exists for user"}, status=status.HTTP_200_OK)
-
-        elif UserFCMToken.objects.filter(user=user, subscription=sub_value).exists():
+        if UserFCMToken.objects.filter(user=user, subscription=sub_value).exists():
             print("🟡 Subscription already exists for user")
             return Response({"message": "Subscription already exists for user"}, status=status.HTTP_200_OK)
         
         # Save if not duplicate
         serializer.save(user=user)
-        print("✅ Token saved for user")
+        print("✅ Subscription saved for user")
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+class RetrieveUserPermToken(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PermissionTokenSerializer
+
+    def get_object(self):
+        user_id = self.kwargs.get("user_id")
+        return get_object_or_404(UserFCMToken, user__id=user_id)
 
 
 @api_view(["DELETE"])
@@ -127,8 +131,8 @@ def send_message_push_notification(request):
         url = str(f"https://{os.getenv('JALE_DYNAMIC_URL')}/chat/{request.data.get('senderId')}")
 
 
-        # This task is loacted in product.task because its also used for Products
-        browser_notify(user_Id, subject, message, url)
+        # This task is located in product.task because its also used for Products
+        send_notification(user_Id, subject, message, url)
         print("Signals", post_save.receivers)
         
         return Response({'status': 'Notification task queued'})
@@ -182,7 +186,6 @@ class UpdatedMessagesView(APIView):
 
         updated_count = 0
         for message in messages:
-            print("It was me")
             message.read = True
             message.save()  # This triggers signals
             updated_count += 1
@@ -196,22 +199,23 @@ class MessageRemindView(APIView):
         incoming_message = request.data.get("message")
         receiver_id = request.data.get("receiver_id")
 
-        def delayed_email_check(incoming_message, receiver_id):
+        def delayed_msg_check(incoming_message, receiver_id):
             receiver = CustomUser.objects.get(id=receiver_id)
             msg = Message.objects.filter(
                 content=incoming_message,
                 receiver_id=receiver.id,
             ).order_by("-timestamp").first()
 
-            time.sleep(5 * 60)
+            time.sleep(4 * 60)
             try:
                 msg = Message.objects.filter(id=msg.id).first()
                 if msg and not msg.read:
-                    browser_notify(receiver.id, "You have an unread message", msg.content, str(f"https://{os.getenv('JALE_DYNAMIC_URL')}/chat/{msg.sender.id}"))
+
+                    send_notification(receiver.id, "You have an unread message", msg.content, str(f"https://{os.getenv('JALE_DYNAMIC_URL')}/chat/{msg.sender.id}"))
             except Exception as e:
                 print(f"Error in push notification sending: {e}")
 
-        threading.Thread(target=delayed_email_check, args=(incoming_message, receiver_id)).start()
+        threading.Thread(target=delayed_msg_check, args=(incoming_message, receiver_id)).start()
 
         return Response({"message": "Reminder scheduled"}, status=202)
 

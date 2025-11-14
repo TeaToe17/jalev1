@@ -35,7 +35,7 @@ const Product = ({ product }: Productprops) => {
     <div className="h-full flex flex-col">
       <div className="relative h-64 overflow-hidden rounded-lg">
         <Image
-          src={imageUrl || "/placeholder.svg"}
+          src={`${imageUrl}?tr=w-600,q-85,f-auto` || "/placeholder.svg"}
           alt={product.name}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

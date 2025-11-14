@@ -20,7 +20,7 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     stock = models.PositiveIntegerField(default=1)
     categories = models.ManyToManyField("product.Category", related_name="category_products")
-    imagefile = models.ImageField(upload_to="products_images/", blank=True, null=True)  # Write images in form of file to this field
+    imagefile = models.ImageField(upload_to="products_images/", blank=True, null=True, max_length=255)  # Write images in form of file to this field
     image = models.URLField(blank=True, null=True)  # Read images in form of cloudinary URLS from this field
     used = models.BooleanField(default=False)
     extra_field = models.JSONField(default=dict, blank=True, null=True)

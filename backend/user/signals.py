@@ -6,7 +6,7 @@ import time
 import logging
 import threading
 import os
-from product.tasks import browser_notify
+from product.tasks import send_notification
 
 
 
@@ -41,19 +41,26 @@ def update_chat_preview(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Message)
 def send_fcm_push_msg(sender, instance, created, **kwargs):
-    if created and not instance.read:
-        print("passed conditionals") 
-        receiver = instance.receiver
-        sender = instance.sender
+    if created:
+        # Delay to let the user possibly mark it as read
+        time.sleep(30) 
+
+        # Re-query the message to get the latest state
+        fresh_instance = Message.objects.get(id=instance.id)
+        if fresh_instance.read:
+            print(f"Message {instance.id} already read, skipping push")
+            return
+
         try:
-            user_Id = receiver.id
+            receiver = fresh_instance.receiver
+            sender_user = fresh_instance.sender
+            user_id = receiver.id
             subject = "New Message"
-            message = instance.content
-            url = str(f"https://{os.getenv('JALE_DYNAMIC_URL')}/chat/{sender.id}")
+            message = fresh_instance.content
+            url = f"https://{os.getenv('JALE_DYNAMIC_URL')}/chat/{sender_user.id}"
 
-
-            # This task is loacted in product.task because its also used for Products
-            browser_notify(user_Id, subject, message, url)            
+            # Send notification
+            send_notification(user_id, subject, message, url)
             print({'status': 'Notification task queued'})
         except Exception as e:
-            return print({'error': str(e)}, status=400)
+            print({'error': str(e)}, status=400)

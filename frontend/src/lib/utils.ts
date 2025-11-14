@@ -138,14 +138,14 @@ const firebaseConfig = {
 // Initialize
 
 let analytics, messaging;
-if (typeof window !== "undefined") {
-  const app = initializeApp(firebaseConfig);
-  messaging = getMessaging(app);
+// if (typeof window !== "undefined") {
+//   const app = initializeApp(firebaseConfig);
+//   messaging = getMessaging(app);
 
-  getToken(messaging, {
-    vapidKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-  }).catch((err) => console.error("Error getting FCM token:", err));
-}
+//   getToken(messaging, {
+//     vapidKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+//   }).catch((err) => console.error("Error getting FCM token:", err));
+// }
 export { analytics, messaging };
 
 export const IsUser = () => {
@@ -216,31 +216,57 @@ export function useGlobalListener() {
   }, [isLoggedIn]);
 }
 
-export function connectToChat(
+export async function connectToChat(
   receiverId: number,
   productId: number = 0,
-  ownerId: number = 0
-) {
+  ownerId: number = 0,
+  maxRetries = 3
+): Promise<WebSocket | null> {
   const token = localStorage.getItem("access");
   if (!token) {
-    // alert("Please Login to chat");
+    console.warn("Please login to chat");
     return null;
   }
 
-  const ws = new WebSocket(
-    // productId
-    //   ? `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
-    // : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`
-    productId
-      ? `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
-      : `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}`
-  );
+  let attempt = 0;
 
-  ws.onopen = () => {
-    console.log("Opened");
-  };
+  while (attempt < maxRetries) {
+    try {
+      // const url = productId
+      //   ? `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
+      //   : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`;
+      const url = productId
+        ? `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
+        : `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}`;
 
-  return ws;
+      const ws = new WebSocket(url);
+
+      // Wait for the socket to actually open or error
+      await new Promise<void>((resolve, reject) => {
+        ws.onopen = () => {
+          console.log("WebSocket connected on attempt", attempt + 1);
+          resolve();
+        };
+        ws.onerror = (err) => {
+          ws.close();
+          reject(err);
+        };
+      });
+
+      return ws; // ✅ Return connected socket
+    } catch (err) {
+      attempt++;
+      console.warn(`WebSocket connection failed (attempt ${attempt})`);
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 1000 * attempt)); // wait a bit before retrying
+      } else {
+        console.error("Max retries reached. Could not connect to chat.");
+        return null;
+      }
+    }
+  }
+
+  return null;
 }
 
 export const getDecodedToken = () => {
@@ -262,3 +288,6 @@ export const fetchCartItems = async () => {
   const res = await api.get<CartItem[]>("order/list/cartitem/");
   return res.data;
 };
+
+export const isIos =
+  /iPad|iPhone|iPod/.test(navigator.userAgent) && !("MSStream" in window);

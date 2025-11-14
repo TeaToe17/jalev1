@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 from django.conf import settings
 from pywebpush import webpush, WebPushException
 import time, json, logging, smtplib, os
+from django.http import JsonResponse
+import traceback
 
 
 load_dotenv()
@@ -158,3 +160,71 @@ def browser_notify(user_id, subject, message, url):
     except Exception as e:
         logger.error(f"Unexpected error in browser_notify: {e}", exc_info=True)
         return {"status": "FAILED", "error": str(e)}
+
+def send_notification(receiver_id, title, body, url):
+    print(receiver_id)
+    try:
+        subscriptions = UserFCMToken.objects.filter(user__id=receiver_id)
+        VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+
+        if not subscriptions.exists():
+            print(f"🔴 No subscriptions found for user ID {receiver_id}")
+            return JsonResponse({
+                "success": False,
+                "message": "No subscriptions found for this user",
+            })
+
+        payload = json.dumps({
+            "title": title or "New Notification",
+            "body": body or "You have a new message",
+            "icon": "/icon-light-32x32.png",
+            "url": url or "/",
+        })
+
+        success_count = 0
+        fail_count = 0
+
+        print(subscriptions)
+        for token in subscriptions:
+            sub_data = token.subscription
+            if sub_data:
+
+                # Convert to dict if stored as JSON string
+                print("sub_data",sub_data)
+                if isinstance(sub_data, str):
+                    try:
+                        sub_data = json.loads(sub_data)
+                    except json.JSONDecodeError:
+                        print("⚠️ Invalid JSON in subscription for user:", receiver_id)
+                        continue
+
+                try:
+                    response = webpush(
+                        subscription_info=sub_data,
+                        data=payload,
+                        vapid_private_key=VAPID_PRIVATE_KEY.strip(),
+                        vapid_claims={"sub": "mailto:jale.official.contact@gmail.com"},
+                    )
+                    print("✅ Notification sent successfully:", sub_data.get("endpoint"))
+                    success_count += 1
+                except WebPushException as e:
+                    if "410 Gone" in str(e) or "expired" in str(e).lower():
+                        print("⚠️ Removing expired subscription:", sub_data.get("endpoint"))
+                        token.delete()
+                    else:
+                        print(f"❌ WebPush failed for {sub_data.get('endpoint')}: {e}")
+                    fail_count += 1
+
+        return JsonResponse({
+            "success": success_count > 0,
+            "sent": success_count,
+            "failed": fail_count,
+            "message": "Notifications processed",
+        })
+
+    except Exception as e:
+        print(f"💥 Error in send_notification: {e}")
+        return JsonResponse({
+            "success": False,
+            "error": str(e),
+        })

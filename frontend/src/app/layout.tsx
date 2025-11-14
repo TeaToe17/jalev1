@@ -7,6 +7,7 @@ import { AppWrapper } from "@/context";
 import { Inter } from "next/font/google";
 import type { Metadata } from "next";
 import { ToastContainer } from "react-toastify";
+import { ImageKitProvider } from "@imagekit/next";
 import "react-toastify/dist/ReactToastify.css";
 
 export const metadata: Metadata = {
@@ -63,12 +64,17 @@ const RootLayout = ({ children }: RootLayoutProps) => (
       />
     </head>
     <body className={`${inter.className} font-urbanist`}>
-      <AppWrapper>
-        <ToastContainer />
-        <Navbar />
-        {children}
-        <Footer />
-      </AppWrapper>
+      <ImageKitProvider
+        urlEndpoint={process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT}
+        // publicKey={process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY}
+      >
+        <AppWrapper>
+          <ToastContainer />
+          <Navbar />
+          {children}
+          <Footer />
+        </AppWrapper>
+      </ImageKitProvider>
     </body>
   </html>
 );

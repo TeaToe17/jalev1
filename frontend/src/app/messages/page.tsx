@@ -104,9 +104,8 @@ const Messages = () => {
       )
     : chats;
 
-
   // Animation variants
-  const containerVariants : Variants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
@@ -259,7 +258,11 @@ const Messages = () => {
           >
             {filteredChats.map((chat) => (
               <motion.div
-                key={chat.actual_sender}
+                key={
+                  Number(chat.actual_sender) == Number(currentUser?.id)
+                    ? chat.actual_receiver
+                    : chat.actual_sender
+                }
                 variants={itemVariants}
                 whileHover={{
                   y: -3,
@@ -287,7 +290,7 @@ const Messages = () => {
                         User #
                         {Number(chat.actual_sender) == Number(currentUser?.id)
                           ? chat.actual_receiver
-                          : chat.actual_sender}
+                          : chat.actual_sender}{" "}
                       </h3>
                       <div className="flex flex-col">
                         <span className="text-xs text-gray-500 flex items-center gap-1 whitespace-nowrap">

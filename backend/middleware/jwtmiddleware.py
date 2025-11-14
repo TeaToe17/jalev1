@@ -6,6 +6,7 @@ from jwt import decode as jwt_decode
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from channels.db import database_sync_to_async
+from rest_framework_simplejwt.settings import api_settings
 
 @database_sync_to_async
 def get_user(user_id):
@@ -25,7 +26,7 @@ class JWTAuthMiddleware(BaseMiddleware):
         if token:
             try:
                 UntypedToken(token)
-                decoded_data = jwt_decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+                decoded_data = jwt_decode(token, api_settings.SIGNING_KEY, algorithms=["HS256"])
                 user_id = decoded_data["user_id"]
                 scope['user'] = await get_user(user_id)
                 # print("scope", scope)
