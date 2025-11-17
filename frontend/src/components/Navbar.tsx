@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ACCESS_TOKEN } from "@/lib/constant";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 type Message = {
   sender_id: number;
@@ -58,7 +59,8 @@ const Navbar = () => {
     setChangedCart,
   } = useAppContext();
 
-  useGlobalListener();
+  // useGlobalListener();
+  usePushNotifications()
 
   // Making sure cart load regardless of route
   useEffect(() => {

@@ -148,19 +148,19 @@ const Form = ({ route, method }: FormProps) => {
           /iPad|iPhone|iPod/.test(navigator.userAgent) &&
           !("MSStream" in window);
 
-        try {
-          if (isIos) {
-            api.post("user/create_permission_token/", {
-              subscription: fcmToken,
-            });
-          } else {
-            api.post("user/create_permission_token/", {
-              token: JSON.stringify(fcmToken),
-            });
-          }
-        } catch (error) {
-          console.log(error);
-        }
+        // try {
+        //   if (isIos) {
+        //     api.post("user/create_permission_token/", {
+        //       subscription: fcmToken,
+        //     });
+        //   } else {
+        //     api.post("user/create_permission_token/", {
+        //       token: JSON.stringify(fcmToken),
+        //     });
+        //   }
+        // } catch (error) {
+        //   console.log(error);
+        // }
 
         // Short delay for success message to be visible
         setTimeout(() => {

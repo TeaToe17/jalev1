@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import UserFCMTokenView, delete_fcm_token_view, ListMessagesView, CreateUserView, ListChatPreview, UserProfileView, send_message_push_notification, PasswordResetView, PasswordResetConfirmView, UpdatedMessagesView, ListUserView, MessageRemindView, cron_view
+from .views import UserFCMTokenView, delete_fcm_token_view, ListMessagesView, CreateUserView, ListChatPreview, UserProfileView, send_message_push_notification, PasswordResetView, PasswordResetConfirmView, UpdatedMessagesView, ListUserView, MessageRemindView, GetSubAndCheckMsg,cron_view
 
 urlpatterns = [
     path("create_user/", CreateUserView.as_view(), name="create-user"),
@@ -12,6 +12,7 @@ urlpatterns = [
     path("update_messages/<int:id>/", UpdatedMessagesView.as_view(), name = "update-messages"),
     path("chatpreview/list/", ListChatPreview.as_view(), name="list-chatpreview"),
     path('message_reminder/', MessageRemindView.as_view(), name='message-reminder'),
+    path('get_sub_check_msg/', GetSubAndCheckMsg.as_view(), name='get-sub-check-msg'),
 
     path('password_reset/', PasswordResetView.as_view(), name='password-reset'),
     path('password_reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),

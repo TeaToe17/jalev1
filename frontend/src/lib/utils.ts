@@ -138,14 +138,14 @@ const firebaseConfig = {
 // Initialize
 
 let analytics, messaging;
-if (typeof window !== "undefined") {
-  const app = initializeApp(firebaseConfig);
-  messaging = getMessaging(app);
+// if (typeof window !== "undefined") {
+//   const app = initializeApp(firebaseConfig);
+//   messaging = getMessaging(app);
 
-  getToken(messaging, {
-    vapidKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-  }).catch((err) => console.error("Error getting FCM token:", err));
-}
+//   getToken(messaging, {
+//     vapidKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+//   }).catch((err) => console.error("Error getting FCM token:", err));
+// }
 export { analytics, messaging };
 
 export const IsUser = () => {
@@ -230,7 +230,7 @@ export function connectToChat(
   const ws = new WebSocket(
     // productId
     //   ? `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
-    // : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`
+    //   : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`
     productId
       ? `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
       : `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}`

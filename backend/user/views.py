@@ -14,10 +14,8 @@ from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from django.http import JsonResponse
 from dotenv import load_dotenv
-import os
+import os, json, time, threading, ast
 
-import time
-import threading
 from send_email import send_email
 
 from .serializers import CustomTokenObtainPairSerializer, PermissionTokenSerializer, MessageSerializer, UserSerializer, ChatPreviewSerializer, PasswordResetSerializer, MessageBooleanSerializer
@@ -59,24 +57,18 @@ class UserFCMTokenView(generics.CreateAPIView):
             print("🔴 Serializer Errors:", serializer.errors)
             return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-        token_value = serializer.validated_data.get("token")
         sub_value = serializer.validated_data.get("subscription")
         user = request.user
 
         # Check for duplication
-        if UserFCMToken.objects.filter(user=user, token=token_value).exists():
-            print("🟡 Token already exists for user")
-            return Response({"message": "Token already exists for user"}, status=status.HTTP_200_OK)
-
-        elif UserFCMToken.objects.filter(user=user, subscription=sub_value).exists():
+        if UserFCMToken.objects.filter(user=user, subscription=sub_value).exists():
             print("🟡 Subscription already exists for user")
             return Response({"message": "Subscription already exists for user"}, status=status.HTTP_200_OK)
         
         # Save if not duplicate
         serializer.save(user=user)
-        print("✅ Token saved for user")
+        print("✅ Subscription saved for user")
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
 
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
@@ -215,6 +207,43 @@ class MessageRemindView(APIView):
 
         return Response({"message": "Reminder scheduled"}, status=202)
 
+class GetSubAndCheckMsg(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        receiver_id = request.data.get("receiverId")
+        msg = request.data.get("body")
+        senderId = int(request.data.get("userId"))
+
+        actual_msg = Message.objects.filter(
+            content=msg,
+            receiver__id=receiver_id,
+            sender__id=senderId
+        ).order_by('-timestamp').first()
+
+        if not actual_msg:
+            return Response({"detail": "Message does not exist"}, status=404)
+
+        if actual_msg.read:
+            print(f"Skipping push - Message {actual_msg.id} has already been read")
+            return Response({"detail": "Message already read"}, status=200)
+
+        # Get subscriptions
+        tokens = UserFCMToken.objects.filter(user__id=receiver_id)
+        raw_subs = list(tokens.values_list("subscription", flat=True))
+
+        subscriptions = []
+        for sub in raw_subs:
+            try:
+                if isinstance(sub, dict):
+                    subscriptions.append(sub)
+                else:
+                    parsed = ast.literal_eval(sub)
+                    subscriptions.append(parsed)
+            except Exception as e:
+                print("Invalid subscription format:", sub, e)
+
+        return Response(subscriptions)
 
 def cron_view(request):
     return JsonResponse({'status': 'ok'})

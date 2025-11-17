@@ -16,7 +16,7 @@ import { connectToChat, fetchProducts, fetchUser, LoggedIn } from "@/lib/utils";
 import api from "@/lib/api";
 import { useAppContext } from "@/context";
 import { useRouter, usePathname } from "next/navigation";
-
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 interface ChatProps {
   receiverId: number;
 }
@@ -90,6 +90,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     productPrice: 0,
   });
   const [isHydrated, setIsHydrated] = useState(false);
+  const { sendPushNotification } = usePushNotifications();
 
   useEffect(() => {
     setIsHydrated(true);
@@ -159,14 +160,26 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   };
 
   const SendReminder = (receiverId: number, message: string) => {
-    api
-      .post("user/message_reminder/", {
-        message,
-        receiver_id: receiverId,
-      })
-      .catch((err) => {
-        console.error("Non-blocking request failed", err);
-      });
+    // api
+    //   .post("user/message_reminder/", {
+    //     message,
+    //     receiver_id: receiverId,
+    //   })
+    //   .catch((err) => {
+    //     console.error("Non-blocking request failed", err);
+    //   });
+    try {
+      if (currentUser) {
+        sendPushNotification(
+          receiverId,
+          currentUser.id,
+          message,
+          "New Message"
+        );
+      }
+    } catch (err) {
+      console.log(err);
+    }
   };
 
   useEffect(() => {
