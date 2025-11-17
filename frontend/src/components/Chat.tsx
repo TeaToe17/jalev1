@@ -160,21 +160,13 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   };
 
   const SendReminder = (receiverId: number, message: string) => {
-    // api
-    //   .post("user/message_reminder/", {
-    //     message,
-    //     receiver_id: receiverId,
-    //   })
-    //   .catch((err) => {
-    //     console.error("Non-blocking request failed", err);
-    //   });
     try {
       if (currentUser) {
         sendPushNotification(
           receiverId,
           currentUser.id,
           message,
-          "New Message"
+          "You have an unread message"
         );
       }
     } catch (err) {
@@ -211,7 +203,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
       ) {
         safeSendReminder();
       }
-    }, 1 * 60 * 1000);
+    }, 2 * 60 * 1000);
 
     const handler = () => {
       safeSendReminder();
@@ -464,6 +456,19 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
         ws.send(JSON.stringify({ message: input }));
         setLastMessage(input);
         setInput("");
+
+        try {
+          if (currentUser && receiverId) {
+            sendPushNotification(
+              receiverId,
+              currentUser.id,
+              input,
+              "New Message"
+            );
+          }
+        } catch (err) {
+          console.log(err);
+        }
 
         setTimeout(() => {
           setPendingMessages((prev) =>
