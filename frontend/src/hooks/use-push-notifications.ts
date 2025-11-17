@@ -196,47 +196,47 @@ export function usePushNotifications() {
 
   // Send a test notification
   const sendPushNotification = useCallback(
-    async (
-      receiverId: number,
-      userId: number,
-      body: string,
-      title: string
-    ) => {
+    (receiverId: number, userId: number, body: string, title: string) => {
+      // Instantly update UI — no await lag
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      try {
-        const response = await fetch("/api/send-notification/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            receiverId: receiverId,
-            userId: userId,
-            body: body,
-            title: title,
-          }),
+      // Fire-and-forget network request
+      fetch("/api/send-notification/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          receiverId,
+          userId,
+          body,
+          title,
+        }),
+      })
+        .then(async (response) => {
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data?.error || "Failed to send notification");
+          }
+
+          // Finish instantly on success
+          setState((prev) => ({ ...prev, isLoading: false }));
+          console.log("[Hook] Notification sent");
+          return true;
+        })
+        .catch((error) => {
+          console.error("[Hook] Send notification error:", error);
+
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to send notification",
+          }));
+
+          return false;
         });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to send notification");
-        }
-
-        setState((prev) => ({ ...prev, isLoading: false }));
-        console.log("[Hook] Test notification sent");
-        return true;
-      } catch (error) {
-        console.error("[Hook] Send notification error:", error);
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to send notification",
-        }));
-        return false;
-      }
     },
     []
   );
