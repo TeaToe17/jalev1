@@ -1,7 +1,6 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: "standalone",
+import type { NextConfig } from "next";
 
+const nextConfig: NextConfig = {
   images: {
     domains: [
       "jalev1.onrender.com",
@@ -10,9 +9,13 @@ const nextConfig = {
       "ik.imagekit.io",
     ],
   },
-
-  experimental: {
-    turbo: true, // ⚡ enable turbopack builds
+  webpack: (config) => {
+    // Avoid forcing output module for compatibility
+    config.experiments = {
+      ...config.experiments,
+      outputModule: false,
+    };
+    return config;
   },
 };
 

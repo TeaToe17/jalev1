@@ -221,8 +221,11 @@ class GetSubAndCheckMsg(APIView):
             sender__id=senderId
         ).order_by('-timestamp').first()
 
+        print(actual_msg)
+
         if not actual_msg:
-            return Response({"detail": "Message does not exist"}, status=404)
+            print("got here")
+            return Response({"detail": "Message does not exist because it was intentionally flagged"}, status=200)
 
         if actual_msg.read:
             print(f"Skipping push - Message {actual_msg.id} has already been read")
