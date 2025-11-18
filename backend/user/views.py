@@ -16,7 +16,6 @@ from django.http import JsonResponse
 from dotenv import load_dotenv
 import os, json, time, threading, ast
 
-from send_email import send_email
 
 from .serializers import CustomTokenObtainPairSerializer, PermissionTokenSerializer, MessageSerializer, UserSerializer, ChatPreviewSerializer, PasswordResetSerializer, MessageBooleanSerializer
 from .models import UserFCMToken, Message, CustomUser, ChatPreview
