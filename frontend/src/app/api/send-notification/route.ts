@@ -14,44 +14,18 @@ export interface PushSubscriptionDTO {
   };
 }
 
-export interface AlreadyReadResponse {
-  detail: string;
-}
-
-function isAlreadyReadResponse(data: unknown): data is AlreadyReadResponse {
-  return (
-    typeof data === "object" &&
-    data !== null &&
-    "detail" in data &&
-    typeof (data as Record<string, unknown>).detail === "string"
-  );
-}
-
 export async function POST(request: NextRequest) {
   try {
     const { receiverId, userId, body, title } = await request.json();
 
-    const response = await serverApi.post<
-      PushSubscriptionDTO[] | AlreadyReadResponse
-    >("user/get_sub_check_msg/", {
-      receiverId: receiverId,
-      userId: userId,
-      body: body,
-    });
-
-    console.log(response);
-
-    if (isAlreadyReadResponse(response.data)) {
-      console.log("Django returned detail:", response.data.detail);
-
-      return NextResponse.json(
-        {
-          success: false,
-          message: response.data.detail,
-        },
-        { status: 200 }
-      );
-    }
+    const response = await serverApi.post<PushSubscriptionDTO[]>(
+      "user/get_sub_check_msg/",
+      {
+        "receiverId":receiverId,
+        "userId":userId,
+        "body":body,
+      }
+    );
 
     const subscriptions = response.data;
 
@@ -93,6 +67,7 @@ export async function POST(request: NextRequest) {
       icon: "/icon-light-32x32.png",
     });
 
+    // 🔥 Send to EACH subscription
     for (const sub of subscriptions) {
       if (!sub || !sub.endpoint) {
         console.warn("Skipping invalid subscription:", sub);
@@ -100,7 +75,7 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        console.log("sub here", sub);
+        console.log(sub);
         await webpush.default.sendNotification(sub, payload);
         console.log("[API] Notification sent to:", sub.endpoint);
       } catch (err) {
