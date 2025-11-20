@@ -28,7 +28,7 @@ const Product = ({ product }: Productprops) => {
 
   // Get a valid image URL or use placeholder
   const imageUrl = isValidImageUrl(product.image)
-    ? product.image
+    ? `${product.image}?tr=w-600,q-85,f-auto`
     : "/placeholder.svg?height=200&width=300";
 
   return (

@@ -288,7 +288,10 @@ export default function Home() {
                       className={`absolute inset-0 bg-gradient-to-r ${banner.color} opacity-80`}
                     ></div>
                     <Image
-                      src={banner.image || "/placeholder.svg"}
+                      src={
+                        `${banner.image}?tr=w-600,q-85,f-auto` ||
+                        "/placeholder.svg"
+                      }
                       alt={banner.title}
                       fill
                       style={{ objectFit: "cover" }}
@@ -449,7 +452,7 @@ export default function Home() {
 function ProductCard({ product, index }: { product: Product; index: number }) {
   const router = useRouter();
 
-  const stickyVariants : Variants = {
+  const stickyVariants: Variants = {
     initial: {
       scale: 1,
       boxShadow: "0 0 0 rgba(255, 107, 0, 0)",
@@ -469,7 +472,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
     },
   };
 
-  const fireAnimation : Variants = {
+  const fireAnimation: Variants = {
     animate: {
       y: [0, -2, 0],
       rotate: [0, 2, -2, 0],
@@ -481,7 +484,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
     },
   };
 
-  const sparkleAnimation : Variants = {
+  const sparkleAnimation: Variants = {
     animate: {
       scale: [1, 1.2, 1],
       opacity: [0.7, 1, 0.7],
@@ -565,7 +568,10 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
 
       <div className="relative h-40 overflow-hidden">
         <Image
-          src={product.image || "/placeholder.svg?height=200&width=300"}
+          src={
+            `${product.image}?tr=w-600,q-85,f-auto` ||
+            "/placeholder.svg?height=200&width=300"
+          }
           alt={product.name}
           fill
           style={{ objectFit: "cover" }}
