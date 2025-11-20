@@ -14,7 +14,7 @@ from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from django.http import JsonResponse
 from dotenv import load_dotenv
-import os, json, time, threading, ast
+import os, time, threading, ast
 
 
 from .serializers import CustomTokenObtainPairSerializer, PermissionTokenSerializer, MessageSerializer, UserSerializer, ChatPreviewSerializer, PasswordResetSerializer, MessageBooleanSerializer
@@ -22,6 +22,8 @@ from .models import UserFCMToken, Message, CustomUser, ChatPreview
 from product.tasks import browser_notify
 
 load_dotenv()
+
+
 
 class CreateUserView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
