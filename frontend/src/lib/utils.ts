@@ -240,6 +240,15 @@ export function connectToChat(
     console.log("Opened");
   };
 
+  ws.onerror = () => {
+    console.log("error happened");
+  };
+
+  ws.onclose = (event) => {
+    console.log("CLOSE CODE:", event.code);
+    console.log("REASON:", event.reason);
+    console.log("WAS CLEAN:", event.wasClean);
+  };
   return ws;
 }
 

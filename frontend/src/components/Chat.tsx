@@ -224,13 +224,17 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     fetchHistory();
 
     let socket: WebSocket | null = null;
+    let retryCount = 0;
+    const MAX_RETRIES = 2;
 
-    try {
-      socket = currentProduct
-        ? connectToChat(receiverId, currentProduct.id, currentProduct.owner)
-        : connectToChat(receiverId);
+    const connect = () => {
+      try {
+        socket = currentProduct
+          ? connectToChat(receiverId, currentProduct.id, currentProduct.owner)
+          : connectToChat(receiverId);
 
-      if (socket) {
+        if (!socket) return;
+
         setWs(socket);
 
         socket.onmessage = (e) => {
@@ -272,21 +276,44 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
         };
 
         socket.onopen = () => {
+          console.log("WS OPEN");
+          retryCount = 0; // reset retry count on success
           setError(null);
         };
 
         socket.onerror = () => {
-          // error handling
+          console.log("WS ERROR");
         };
 
-        socket.onclose = () => {
+        socket.onclose = (event) => {
           console.log("WebSocket connection closed");
+          // console.log("EVENT:", event);
+          // console.log("CLOSE CODE:", event.code);
+          // console.log("REASON:", event.reason);
+          // console.log("WAS CLEAN:", event.wasClean);
+
+          // Retry logic ONLY for abnormal closures
+          if (event.code === 1006 || !event.wasClean) {
+            if (retryCount < MAX_RETRIES) {
+              retryCount++;
+              console.log(`Retrying WebSocket... Attempt ${retryCount}`);
+
+              setTimeout(() => {
+                connect();
+              }, 500);
+            } else {
+              console.error("Max retries reached. Stopping.");
+              setError("Failed to connect to chat after multiple attempts.");
+            }
+          }
         };
+      } catch (err) {
+        console.error("WebSocket connection failed", err);
+        setError("Failed to connect to chat. Please refresh the page.");
       }
-    } catch (err) {
-      console.error("WebSocket connection failed", err);
-      setError("Failed to connect to chat. Please refresh the page.");
-    }
+    };
+
+    connect(); // initial connect attempt
 
     return () => {
       if (
