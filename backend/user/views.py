@@ -220,7 +220,7 @@ class GetSubAndCheckMsg(APIView):
             content=msg,
             receiver__id=receiver_id,
             sender__id=senderId
-        ).order_by('-timestamp').first()
+        ).order_by('timestamp').first()
 
         print(actual_msg)
 

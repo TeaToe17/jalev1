@@ -40,6 +40,9 @@ class Message(models.Model):
             self.read = False
         super().save(*args, **kwargs)
 
+    def __str__(self):
+        return f"{self.content}-{self.timestamp}-{self.read}-{self.id}"
+
 
 class ChatPreview(models.Model):
     sender = models.ForeignKey("user.CustomUser", on_delete=models.CASCADE, related_name="sender_previews")
