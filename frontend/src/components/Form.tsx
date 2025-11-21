@@ -8,7 +8,6 @@ import api from "../lib/api";
 import { ACCESS_TOKEN, REFRESH_TOKEN } from "../lib/constant";
 import LoadingIndicator from "./LoadingIndicator";
 import { useAppContext } from "@/context";
-import useFcmToken from "./FcmProvider";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertCircle,
@@ -35,7 +34,6 @@ const Form = ({ route, method }: FormProps) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
-  const { token, notificationPermissionStatus } = useFcmToken();
 
   const name = method === "login" ? "Login" : "Register";
   const isRegister = method === "register";
@@ -143,26 +141,6 @@ const Form = ({ route, method }: FormProps) => {
         setIsLoggedIn(true);
         setSuccess("Login successful! Redirecting...");
 
-        const fcmToken = await token;
-        const isIos =
-          /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-          !("MSStream" in window);
-
-        // try {
-        //   if (isIos) {
-        //     api.post("user/create_permission_token/", {
-        //       subscription: fcmToken,
-        //     });
-        //   } else {
-        //     api.post("user/create_permission_token/", {
-        //       token: JSON.stringify(fcmToken),
-        //     });
-        //   }
-        // } catch (error) {
-        //   console.log(error);
-        // }
-
-        // Short delay for success message to be visible
         setTimeout(() => {
           router.push(url ? `${url}` : "/");
         }, 1000);
