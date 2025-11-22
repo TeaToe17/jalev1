@@ -225,7 +225,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
 
     let socket: WebSocket | null = null;
     let retryCount = 0;
-    const MAX_RETRIES = 2;
+    const MAX_RETRIES = 3;
 
     const connect = () => {
       try {
