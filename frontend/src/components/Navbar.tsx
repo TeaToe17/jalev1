@@ -59,7 +59,7 @@ const Navbar = () => {
     setChangedCart,
   } = useAppContext();
 
-  // useGlobalListener();
+  useGlobalListener();
   usePushNotifications()
 
   // Making sure cart load regardless of route
