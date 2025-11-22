@@ -216,11 +216,15 @@ class GetSubAndCheckMsg(APIView):
         msg = request.data.get("body")
         senderId = int(request.data.get("userId"))
 
-        actual_msg = Message.objects.filter(
-            content=msg,
-            receiver__id=receiver_id,
-            sender__id=senderId
-        ).order_by('timestamp').first()
+        actual_msg = (
+            Message.objects.filter(
+                content=msg,
+                receiver__id=receiver_id,
+                sender__id=senderId
+            )
+            .order_by('-timestamp', '-id')
+            .first()
+        )
 
         print(actual_msg)
 

@@ -15,6 +15,7 @@ class UserFCMTokenAdmin(admin.ModelAdmin):
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
     model = Message
+    ordering=["-timestamp"]
 
 @admin.register(ChatPreview)
 class ChatPreviewAdmin(admin.ModelAdmin):
