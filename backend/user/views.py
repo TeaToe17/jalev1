@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 from django.http import Http404
+from django.db.models import Q, F
 from django.contrib.auth.tokens import default_token_generator
 from rest_framework.parsers import MultiPartParser
 from django.utils.http import urlsafe_base64_decode
@@ -14,10 +15,6 @@ from django.utils.encoding import force_str
 from django.http import JsonResponse
 from dotenv import load_dotenv
 import os, time, threading, ast
-
-from django.utils.timezone import now
-from django.db.models import Q, F, ExpressionWrapper, DurationField
-
 
 
 from .serializers import CustomTokenObtainPairSerializer, PermissionTokenSerializer, MessageSerializer, UserSerializer, ChatPreviewSerializer, PasswordResetSerializer, MessageBooleanSerializer
@@ -219,36 +216,13 @@ class GetSubAndCheckMsg(APIView):
         msg = request.data.get("body")
         senderId = int(request.data.get("userId"))
 
-        print(Message.objects.filter(
-                content=msg,
-                receiver_id=receiver_id,
-                sender_id=senderId,
-                timestamp__lte=current_time
-            )
-            .annotate(
-                diff=ExpressionWrapper(
-                    current_time - F("timestamp"),
-                    output_field=DurationField()
-                )
-            )
-            .order_by("diff", "-id") )
-
-        current_time = now()
-
         actual_msg = (
             Message.objects.filter(
                 content=msg,
-                receiver_id=receiver_id,
-                sender_id=senderId,
-                timestamp__lte=current_time
+                receiver__id=receiver_id,
+                sender__id=senderId
             )
-            .annotate(
-                diff=ExpressionWrapper(
-                    current_time - F("timestamp"),
-                    output_field=DurationField()
-                )
-            )
-            .order_by("diff", "-id")     # smallest diff = closest to now
+            .order_by('-timestamp', '-id')
             .first()
         )
 
