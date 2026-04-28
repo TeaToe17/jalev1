@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=Message)
 def update_chat_preview(sender, instance, created, **kwargs):
+    print("Save Detected")
     if not created and instance.read:
         user1 = instance.sender  
         user2 = instance.receiver  

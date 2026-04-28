@@ -216,6 +216,8 @@ class GetSubAndCheckMsg(APIView):
         msg = request.data.get("body")
         senderId = int(request.data.get("userId"))
 
+        print(msg)
+
         actual_msg = (
             Message.objects.filter(
                 content=msg,
@@ -227,6 +229,7 @@ class GetSubAndCheckMsg(APIView):
         )
 
         print(actual_msg)
+        print(actual_msg.timestamp)
 
         if not actual_msg:
             print("got here")

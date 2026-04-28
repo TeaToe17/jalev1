@@ -77,52 +77,52 @@ def browser_notify(user_id, subject, message, url):
 
         for user_token in user_tokens:
             # Try FCM first (best for Android/Chrome)
-            if user_token.token:
-                try:
-                    logger.info(f"Sending FCM notification to user {user_id}")
-                    message_obj = messaging.Message(
-                        notification=messaging.Notification(
-                            title=subject,
-                            body=message,
-                            image=url if url and url.endswith(('.jpg', '.png', '.gif')) else None,
-                        ),
-                        data={
-                            "title": subject,
-                            "body": message,
-                            "url": url or "",
-                            "timestamp": str(int(time.time())),
-                            "click_action": url or "",
-                        },
-                        webpush=messaging.WebpushConfig(
-                            notification=messaging.WebpushNotification(
-                                title=subject,
-                                body=message,
-                                icon="/logo.png",
-                                badge="/badge-icon.png",
-                                tag="notification-tag",
-                                require_interaction=True,
-                                actions=[
-                                    messaging.WebpushNotificationAction(action="open", title="Open"),
-                                    messaging.WebpushNotificationAction(action="close", title="Close"),
-                                ],
-                                data={"url": url or "", "timestamp": str(int(time.time()))},
-                            ),
-                            fcm_options=messaging.WebpushFCMOptions(link=url),
-                        ),
-                        token=user_token.token,
-                    )
+            # if user_token.token:
+            #     try:
+            #         logger.info(f"Sending FCM notification to user {user_id}")
+            #         message_obj = messaging.Message(
+            #             notification=messaging.Notification(
+            #                 title=subject,
+            #                 body=message,
+            #                 image=url if url and url.endswith(('.jpg', '.png', '.gif')) else None,
+            #             ),
+            #             data={
+            #                 "title": subject,
+            #                 "body": message,
+            #                 "url": url or "",
+            #                 "timestamp": str(int(time.time())),
+            #                 "click_action": url or "",
+            #             },
+            #             webpush=messaging.WebpushConfig(
+            #                 notification=messaging.WebpushNotification(
+            #                     title=subject,
+            #                     body=message,
+            #                     icon="/logo.png",
+            #                     badge="/badge-icon.png",
+            #                     tag="notification-tag",
+            #                     require_interaction=True,
+            #                     actions=[
+            #                         messaging.WebpushNotificationAction(action="open", title="Open"),
+            #                         messaging.WebpushNotificationAction(action="close", title="Close"),
+            #                     ],
+            #                     data={"url": url or "", "timestamp": str(int(time.time()))},
+            #                 ),
+            #                 fcm_options=messaging.WebpushFCMOptions(link=url),
+            #             ),
+            #             token=user_token.token,
+            #         )
 
-                    response = messaging.send(message_obj)
-                    logger.info(f"FCM notification sent successfully: {response}")
-                    notification_sent = True
-                    break  # Exit after successful send - only send ONE notification
+            #         response = messaging.send(message_obj)
+            #         logger.info(f"FCM notification sent successfully: {response}")
+            #         notification_sent = True
+            #         break  # Exit after successful send - only send ONE notification
 
-                except messaging.UnregisteredError:
-                    logger.warning(f"Unregistered FCM token, removing: {user_token.token}")
-                    user_token.delete()
-                except Exception as e:
-                    logger.error(f"Error sending FCM notification: {e}")
-                    # Continue to next token if FCM fails
+            #     except messaging.UnregisteredError:
+            #         logger.warning(f"Unregistered FCM token, removing: {user_token.token}")
+            #         user_token.delete()
+            #     except Exception as e:
+            #         logger.error(f"Error sending FCM notification: {e}")
+            #         # Continue to next token if FCM fails
 
             if user_token.subscription:
                 try:

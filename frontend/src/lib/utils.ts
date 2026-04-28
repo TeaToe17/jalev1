@@ -175,10 +175,19 @@ export function useGlobalListener() {
       const decoded: Decoded = jwtDecode(token);
       const userId = decoded.user_id;
 
-      ws = new WebSocket(
-        // `ws://localhost:8000/ws/global_chat/${userId}/?token=${token}`
-        `wss://jalev1.onrender.com/ws/global_chat/${userId}/?token=${token}`
-      );
+      // ws = new WebSocket(
+      //   // `ws://localhost:8000/ws/global_chat/${userId}/?token=${token}`
+      //   `wss://jalev1.onrender.com/ws/global_chat/${userId}/?token=${token}`,
+      // );
+
+      ws =
+        process.env.NEXT_PUBLIC_ENVIRONMENT === "development"
+          ? new WebSocket(
+              `ws://localhost:8000/ws/global_chat/${userId}/?token=${token}`,
+            )
+          : new WebSocket(
+              `wss://jalev1.onrender.com/ws/global_chat/${userId}/?token=${token}`,
+            );
 
       ws.onopen = () => {
         console.log("Global WebSocket opened");
@@ -198,7 +207,7 @@ export function useGlobalListener() {
         if (retryCount.current < 2) {
           retryCount.current += 1;
           console.log(
-            `Retrying WebSocket connection... (Attempt ${retryCount.current})`
+            `Retrying WebSocket connection... (Attempt ${retryCount.current})`,
           );
           reconnectTimeout = setTimeout(() => {
             connectWebSocket();
@@ -219,7 +228,7 @@ export function useGlobalListener() {
 export function connectToChat(
   receiverId: number,
   productId: number = 0,
-  ownerId: number = 0
+  ownerId: number = 0,
 ) {
   const token = localStorage.getItem("access");
   if (!token) {
@@ -227,14 +236,27 @@ export function connectToChat(
     return null;
   }
 
-  const ws = new WebSocket(
-    // productId
-    //   ? `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
-    //   : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`
-    productId
-      ? `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
-      : `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}`
-  );
+  // const ws = new WebSocket(
+  //   // productId
+  //   //   ? `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
+  //   //   : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`
+  //   productId
+  //     ? `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
+  //     : `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}`,
+  // );
+
+  const ws =
+    process.env.NEXT_PUBLIC_ENVIRONMENT === "development"
+      ? new WebSocket(
+          productId
+            ? `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
+            : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`,
+        )
+      : new WebSocket(
+          productId
+            ? `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
+            : `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}`,
+        );
 
   ws.onopen = () => {
     console.log("Opened");
