@@ -69,28 +69,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 read=False
             )
 
-    @database_sync_to_async
-    def update_chat_preview(self, sender_id, receiver_id, content):
-        if content != self.warning:
-            first_user_id = min(sender_id, receiver_id)
-            second_user_id = max(sender_id, receiver_id)
-            if first_user_id != second_user_id:
-                try:
-                    # Single database operation with update_or_create
-                    obj, created = ChatPreview.objects.update_or_create(
-                        sender_id=first_user_id,
-                        receiver_id=second_user_id,
-                        defaults={
-                            'latest_message': content,
-                            'time': localtime(now()),
-                            'actual_sender_id': sender_id,
-                            'actual_receiver_id': receiver_id,
-                            'unread': F('unread') + 1 if not created else 1,
-                        }
-                    )
-                except Exception as e:
-                    print(f"[v0] ChatPreview save error: {e}")
-
     async def chat_message_personal(self, event):
         message_data = {
             'scope': 'personal',
@@ -152,7 +130,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Create async tasks for non-blocking operations (fire and forget)
         # These run concurrently without blocking the receive method
         asyncio.create_task(self._async_send_personal(base_data))
-        asyncio.create_task(self._async_save_and_preview(base_data, content))
+        asyncio.create_task(self._async_save_message(base_data, content))
 
     async def _async_send_personal(self, base_data):
         """Non-blocking personal message send"""
@@ -164,13 +142,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             print(f"[v0] Error sending personal message: {e}")
 
-    async def _async_save_and_preview(self, base_data, content):
+    async def _async_save_message(self, base_data, content):
         """Non-blocking database operations"""
         try:
-            # Run both database operations concurrently
+            # Run database operation
             await asyncio.gather(
                 self.save_message(base_data['sender_id'], base_data['receiver_id'], content),
-                self.update_chat_preview(base_data['sender_id'], base_data['receiver_id'], content),
                 return_exceptions=True
             )
         except Exception as e:

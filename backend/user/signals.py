@@ -2,7 +2,7 @@ from django.dispatch import receiver
 from django.db.models.signals import post_save
 from django.db.models import Q
 from user.models import Message, ChatPreview
-import time 
+from django.utils.timezone import localtime, now
 import logging
 import threading
 import os
@@ -18,30 +18,55 @@ logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=Message)
 def update_chat_preview(sender, instance, created, **kwargs):
-    print("Save Detected")
-    if not created and instance.read:
-        user1 = instance.sender  
-        user2 = instance.receiver  
+    print("[SIGNAL] Message save detected")
 
-        try:
-            chatpreview = ChatPreview.objects.get(
-                Q(sender_id=user1.id, receiver_id=user2.id) |
+    user1 = instance.sender
+    user2 = instance.receiver
 
-                Q(sender_id=user2.id, receiver_id=user1.id)
-            )
+    try:
+        # Always normalize conversation pair
+        first_user_id = min(user1.id, user2.id)
+        second_user_id = max(user1.id, user2.id)
 
-            if chatpreview.unread > 0:  # Prevent negative unread count
-                chatpreview.unread -= 1
-                chatpreview.save()
+        print(f"[SIGNAL] Users -> {first_user_id}, {second_user_id}")
 
-        except ChatPreview.DoesNotExist:
-            print("ChatPreview not found.")
-        except Exception as e:
-            print("Unexpected error:", e)
+        # GET OR CREATE preview
+        chatpreview, preview_created = ChatPreview.objects.get_or_create(
+            sender_id=first_user_id,
+            receiver_id=second_user_id,
+            defaults={
+                "latest_message": instance.content,
+                "time": localtime(now()),
+                "actual_sender_id": user1.id,
+                "actual_receiver_id": user2.id,
+                "unread": 0,
+            }
+        )
 
-@receiver(post_save, sender=Message)
-def send_push_notification(sender, instance, created, **kwargs):
-    print(f"Push signal fired | created={created} | read={instance.read}")
+        print(f"[SIGNAL] ChatPreview exists: {not preview_created}")
+
+        # ALWAYS update latest message
+        chatpreview.latest_message = instance.content
+        chatpreview.time = localtime(now())
+        chatpreview.actual_sender_id = user1.id
+        chatpreview.actual_receiver_id = user2.id
+
+        # CASE 1: new message → increase unread
+        if created and not instance.read:
+            chatpreview.unread = (chatpreview.unread or 0) + 1
+            print("[SIGNAL] Unread incremented")
+
+        # CASE 2: message marked as read → decrease unread
+        elif not created and instance.read:
+            chatpreview.unread = max((chatpreview.unread or 0) - 1, 0)
+            print("[SIGNAL] Unread decremented")
+
+        chatpreview.save()
+
+        print("[SIGNAL] ChatPreview updated successfully")
+
+    except Exception as e:
+        print("[SIGNAL ERROR]", e)
 
 
 @receiver(post_save, sender=Message)
