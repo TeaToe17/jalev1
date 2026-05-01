@@ -321,7 +321,7 @@ export default function Home() {
                   className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full z-20"
                   onClick={() =>
                     handleBannerChange(
-                      (currentBanner - 1 + banners.length) % banners.length
+                      (currentBanner - 1 + banners.length) % banners.length,
                     )
                   }
                 >
@@ -497,6 +497,12 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
     },
   };
 
+  const imageSrc = product.image
+    ? `${product.image}`
+    : // ? `${product.image}?tr=w-600,q-85,f-auto`
+      "/placeholder.svg";
+
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -568,10 +574,11 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
 
       <div className="relative h-40 overflow-hidden">
         <Image
-          src={
-            `${product.image}?tr=w-600,q-85,f-auto` ||
-            "/placeholder.svg?height=200&width=300"
-          }
+          // src={
+          //   `${product.image}?tr=w-600,q-85,f-auto` ||
+          //   "/placeholder.svg?height=200&width=300"
+          // }
+          src={imageSrc}
           alt={product.name}
           fill
           style={{ objectFit: "cover" }}

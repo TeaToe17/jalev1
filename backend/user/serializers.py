@@ -7,7 +7,7 @@ from django.utils.encoding import force_bytes
 from django.core.mail import send_mail
 from django.conf import settings
 
-from .models import CustomUser, UserFCMToken, Message, ChatPreview
+from .models import CustomUser, Message, ChatPreview
 from product.models import Category
 
 from dotenv import load_dotenv
@@ -64,12 +64,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'categories': list(user.categories.values_list('name', flat=True)),          
                 }
         return token
-
-    
-class PermissionTokenSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserFCMToken
-        fields = [ "subscription"]
 
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:

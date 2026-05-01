@@ -1,12 +1,12 @@
 from django.urls import path
-from .views import UserFCMTokenView, delete_fcm_token_view, ListMessagesView, CreateUserView, ListChatPreview, UserProfileView, send_message_push_notification, PasswordResetView, PasswordResetConfirmView, UpdatedMessagesView, ListUserView, MessageRemindView, GetSubAndCheckMsg,cron_view
+from .views import save_subscription, delete_webpush_token_view, ListMessagesView, CreateUserView, ListChatPreview, UserProfileView, send_message_push_notification, PasswordResetView, PasswordResetConfirmView, UpdatedMessagesView, ListUserView, MessageRemindView, GetSubAndCheckMsg,cron_view
 
 urlpatterns = [
     path("create_user/", CreateUserView.as_view(), name="create-user"),
     path("update_user/<int:id>/", UserProfileView.as_view(), name="update-user"),
     path("get_user/<int:id>/",ListUserView.as_view(), name="get_user"),
-    path("create_permission_token/", UserFCMTokenView.as_view(), name="create-permission-token"),
-    path("delete_permission_token/", delete_fcm_token_view, name="delete-permission-token"),
+    path("create_permission_token/", save_subscription, name="create-permission-token"),
+    path("delete_permission_token/", delete_webpush_token_view, name="delete-permission-token"),
     path("list_messages/<int:user_id>/", ListMessagesView.as_view(), name="list-messages"),
     path("push_message/", send_message_push_notification, name="push-message"),
     path("update_messages/<int:id>/", UpdatedMessagesView.as_view(), name = "update-messages"),

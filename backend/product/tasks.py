@@ -5,7 +5,7 @@
 # from datetime import timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from user.models import UserFCMToken
+from user.models import PushSubscription
 from firebase_admin import get_app, messaging
 from dotenv import load_dotenv
 from django.conf import settings
@@ -51,102 +51,56 @@ logger = logging.getLogger(__name__)
 
 def browser_notify(user_id, subject, message, url):
     """
-    Sends ONE notification per user via FCM (Android/Chrome) or WebPush (Apple/Safari).
+    Sends ONE notification per user via WebPush (Apple/Android/Windows).
     Intelligently selects the best available path to avoid duplicate messages.
-    
-    Priority:
-    1. FCM (most reliable for Android/Chrome)
-    2. WebPush fallback (for Safari/iOS)
     """
     logger.info(f"Sending single notification: user_id={user_id}, subject={subject}, message={message}, url={url}")
 
     try:
-        app = get_app()
-        logger.info(f"Firebase Admin app initialized: {app.name}")
-    except ValueError as e:
-        logger.error(f"Firebase Admin not initialized: {e}")
-        return {"status": "FAILED", "error": "Firebase not initialized"}
-
-    try:
-        user_tokens = UserFCMToken.objects.filter(user__id=user_id)
-        if not user_tokens.exists():
-            logger.warning(f"No FCM/WebPush tokens found for user ID {user_id}")
+        subscriptions = PushSubscription.objects.filter(user__id=user_id)
+        if not subscriptions.exists():
+            logger.warning(f"No WebPush tokens found for user ID {user_id}")
             return {"status": "FAILED", "error": "No tokens found"}
 
         notification_sent = False
 
-        for user_token in user_tokens:
-            # Try FCM first (best for Android/Chrome)
-            # if user_token.token:
-            #     try:
-            #         logger.info(f"Sending FCM notification to user {user_id}")
-            #         message_obj = messaging.Message(
-            #             notification=messaging.Notification(
-            #                 title=subject,
-            #                 body=message,
-            #                 image=url if url and url.endswith(('.jpg', '.png', '.gif')) else None,
-            #             ),
-            #             data={
-            #                 "title": subject,
-            #                 "body": message,
-            #                 "url": url or "",
-            #                 "timestamp": str(int(time.time())),
-            #                 "click_action": url or "",
-            #             },
-            #             webpush=messaging.WebpushConfig(
-            #                 notification=messaging.WebpushNotification(
-            #                     title=subject,
-            #                     body=message,
-            #                     icon="/logo.png",
-            #                     badge="/badge-icon.png",
-            #                     tag="notification-tag",
-            #                     require_interaction=True,
-            #                     actions=[
-            #                         messaging.WebpushNotificationAction(action="open", title="Open"),
-            #                         messaging.WebpushNotificationAction(action="close", title="Close"),
-            #                     ],
-            #                     data={"url": url or "", "timestamp": str(int(time.time()))},
-            #                 ),
-            #                 fcm_options=messaging.WebpushFCMOptions(link=url),
-            #             ),
-            #             token=user_token.token,
-            #         )
-
-            #         response = messaging.send(message_obj)
-            #         logger.info(f"FCM notification sent successfully: {response}")
-            #         notification_sent = True
-            #         break  # Exit after successful send - only send ONE notification
-
-            #     except messaging.UnregisteredError:
-            #         logger.warning(f"Unregistered FCM token, removing: {user_token.token}")
-            #         user_token.delete()
-            #     except Exception as e:
-            #         logger.error(f"Error sending FCM notification: {e}")
-            #         # Continue to next token if FCM fails
-
-            if user_token.subscription:
-                try:
-                    logger.info(f"Sending WebPush notification to user {user_id} (FCM unavailable)")
-                    payload = {
-                        "title": subject,
-                        "body": message,
-                        "url": url or "",
-                        "timestamp": str(int(time.time())),
+        for sub in subscriptions:
+            try:
+                logger.info(f"Sending WebPush notification to user {user_id}")
+                payload = {
+                    "title": subject,
+                    "body": message,
+                    "url": url or "",
+                    "timestamp": str(int(time.time())),
+                }
+                # webpush(
+                #     subscription_info=user_token.subscription,
+                #     data=json.dumps(payload),
+                #     vapid_private_key=settings.WEBPUSH_VAPID_PRIVATE_KEY,
+                #     vapid_claims=settings.WEBPUSH_VAPID_CLAIMS,
+                # )
+                webpush(
+                subscription_info={
+                    "endpoint": sub.endpoint,
+                    "keys": {
+                        "p256dh": sub.p256dh, # Fixed: p256dh (not 265)
+                        "auth": sub.auth,
                     }
-                    webpush(
-                        subscription_info=user_token.subscription,
-                        data=json.dumps(payload),
-                        vapid_private_key=settings.WEBPUSH_VAPID_PRIVATE_KEY,
-                        vapid_claims=settings.WEBPUSH_VAPID_CLAIMS,
-                    )
-                    logger.info("WebPush notification sent successfully")
-                    notification_sent = True
-                    break  # Exit after successful send - only send ONE notification
+                },
+                data=json.dumps(payload),
+                vapid_private_key=os.getenv("VAPID_PRIVATE_KEY"),
+                vapid_claims={
+                    "sub": "mailto:titobiloluwaa83@gmail.com"
+                }
+            )
+                logger.info("WebPush notification sent successfully")
+                notification_sent = True
+                break  # Exit after successful send - only send ONE notification
 
-                except WebPushException as e:
-                    logger.error(f"WebPush failed for user {user_id}: {repr(e)}")
-                except Exception as e:
-                    logger.error(f"Unexpected WebPush error: {e}", exc_info=True)
+            except WebPushException as e:
+                logger.error(f"WebPush failed for user {user_id}: {repr(e)}")
+            except Exception as e:
+                logger.error(f"Unexpected WebPush error: {e}", exc_info=True)
 
         return {
             "status": "SENT" if notification_sent else "FAILED",

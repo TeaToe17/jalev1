@@ -76,7 +76,7 @@ export function usePushNotifications() {
       // Register service worker
       const registration = await navigator.serviceWorker.register(
         "/service-worker.js",
-        { scope: "/" }
+        { scope: "/" },
       );
 
       console.log("[Hook] Service worker registered");
@@ -89,7 +89,7 @@ export function usePushNotifications() {
       });
 
       await api.post("user/create_permission_token/", {
-        subscription: subscription,
+        subscription,
       });
 
       setState((prev) => ({
@@ -124,7 +124,7 @@ export function usePushNotifications() {
 
         subscribe()
           .then((success) =>
-            console.log("Subscribed (token appeared)?", success)
+            console.log("Subscribed (token appeared)?", success),
           )
           .catch((err) => console.error("[Subscription error]", err));
       }
@@ -134,7 +134,7 @@ export function usePushNotifications() {
     if (lastToken) {
       subscribe()
         .then((success) =>
-          console.log("Subscribed (already logged in)?", success)
+          console.log("Subscribed (already logged in)?", success),
         )
         .catch((err) => console.error("[Subscription error]", err));
     }
@@ -238,7 +238,7 @@ export function usePushNotifications() {
           return false;
         });
     },
-    []
+    [],
   );
 
   return {

@@ -18,14 +18,14 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return f"{self.id}-{self.username}"
 
-class UserFCMToken(models.Model):
-    user = models.ForeignKey("user.CustomUser", on_delete=models.CASCADE, related_name="fcm_tokens", null=True)
-    token = models.TextField(null=True, blank=True)
-    subscription = models.JSONField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+# class UserFCMToken(models.Model):
+#     user = models.ForeignKey("user.CustomUser", on_delete=models.CASCADE, related_name="fcm_tokens", null=True)
+#     token = models.TextField(null=True, blank=True)
+#     subscription = models.JSONField(null=True, blank=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.user.username}-{self.token}-{self.created_at}"
+#     def __str__(self):
+#         return f"{self.user.username}-{self.token}-{self.created_at}"
 
 class Message(models.Model):
     sender = models.ForeignKey("user.CustomUser", on_delete=models.CASCADE, related_name='sent_messages', null=True)
@@ -56,3 +56,13 @@ class ChatPreview(models.Model):
 
     class Meta:
         ordering = ["-time"]
+
+class PushSubscription(models.Model):
+    user = models.ForeignKey("user.CustomUser", on_delete=models.CASCADE, related_name="webpush_tokens", null=True)
+    endpoint = models.TextField()
+    p256dh  = models.TextField()
+    auth = models.TextField()
+    created_at = models.TimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.endpoint

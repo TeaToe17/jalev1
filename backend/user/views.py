@@ -14,11 +14,11 @@ from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from django.http import JsonResponse
 from dotenv import load_dotenv
-import os, time, threading, ast
+import os, time, threading, ast, json
 
 
-from .serializers import CustomTokenObtainPairSerializer, PermissionTokenSerializer, MessageSerializer, UserSerializer, ChatPreviewSerializer, PasswordResetSerializer, MessageBooleanSerializer
-from .models import UserFCMToken, Message, CustomUser, ChatPreview
+from .serializers import CustomTokenObtainPairSerializer , MessageSerializer, UserSerializer, ChatPreviewSerializer, PasswordResetSerializer, MessageBooleanSerializer
+from .models import Message, CustomUser, ChatPreview, PushSubscription
 from product.tasks import browser_notify
 
 load_dotenv()
@@ -47,42 +47,60 @@ class ListUserView(generics.RetrieveAPIView):
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     
-class UserFCMTokenView(generics.CreateAPIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = PermissionTokenSerializer
+# class UserFCMTokenView(generics.CreateAPIView):
+#     permission_classes = [IsAuthenticated]
+#     serializer_class = PermissionTokenSerializer
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data, context={"request": request})
+#     def create(self, request, *args, **kwargs):
+#         serializer = self.get_serializer(data=request.data, context={"request": request})
 
-        if not serializer.is_valid():
-            print("🔴 Serializer Errors:", serializer.errors)
-            return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+#         if not serializer.is_valid():
+#             print("🔴 Serializer Errors:", serializer.errors)
+#             return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-        sub_value = serializer.validated_data.get("subscription")
-        user = request.user
+#         sub_value = serializer.validated_data.get("subscription")
+#         user = request.user
 
-        # Check for duplication
-        if UserFCMToken.objects.filter(user=user, subscription=sub_value).exists():
-            print("🟡 Subscription already exists for user")
-            return Response({"message": "Subscription already exists for user"}, status=status.HTTP_200_OK)
+#         # Check for duplication
+#         if UserFCMToken.objects.filter(user=user, subscription=sub_value).exists():
+#             print("🟡 Subscription already exists for user")
+#             return Response({"message": "Subscription already exists for user"}, status=status.HTTP_200_OK)
         
-        # Save if not duplicate
-        serializer.save(user=user)
-        print("✅ Subscription saved for user")
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+#         # Save if not duplicate
+#         serializer.save(user=user)
+#         print("✅ Subscription saved for user")
+#         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
-def delete_fcm_token_view(request):
-    """Delete the FCM token for the authenticated user."""
+def delete_webpush_token_view(request):
+    """Delete the WebPush token for the authenticated user."""
     
-    token = UserFCMToken.objects.filter(user=request.user).first()
+    token = PushSubscription.objects.filter(user=request.user).first()
     
     if token:
         token.delete()
         return Response({"message": "Token deleted successfully"}, status=200)
     
-    raise Http404("FCM Token not found")
+    raise Http404("Webpush Token not found")
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def save_subscription(request):
+    data = json.loads(request.body)
+
+    subscription = data.get("subscription")
+    print("data", data)
+
+    PushSubscription.objects.create(
+        user = request.user,
+        endpoint=subscription["endpoint"],
+        p256dh=subscription["keys"]["p256dh"],
+        auth=subscription["keys"]["auth"],
+    )
+
+    return JsonResponse({"status":"saved"})
 
 class ListMessagesView(generics.ListAPIView):
     # serializer_class = MessageSerializer
@@ -240,7 +258,7 @@ class GetSubAndCheckMsg(APIView):
             return Response({"detail": "Message already read"}, status=200)
 
         # Get subscriptions
-        tokens = UserFCMToken.objects.filter(user__id=receiver_id)
+        tokens = PushSubscription.objects.filter(user__id=receiver_id)
         raw_subs = list(tokens.values_list("subscription", flat=True))
 
         subscriptions = []

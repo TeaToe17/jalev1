@@ -90,7 +90,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     productPrice: 0,
   });
   const [isHydrated, setIsHydrated] = useState(false);
-  const { sendPushNotification } = usePushNotifications();
+  // const { sendPushNotification } = usePushNotifications();
 
   useEffect(() => {
     setIsHydrated(true);
@@ -117,7 +117,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
         const res: Product[] = await fetchProducts();
         if (res) {
           const product = res.find(
-            (item) => item.id === Number(storedProductId)
+            (item) => item.id === Number(storedProductId),
           );
           if (product) {
             setProductDetails({
@@ -159,20 +159,20 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     }
   };
 
-  const SendReminder = (receiverId: number, message: string) => {
-    try {
-      if (currentUser) {
-        sendPushNotification(
-          receiverId,
-          currentUser.id,
-          message,
-          "You have an unread message"
-        );
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  };
+  // const SendReminder = (receiverId: number, message: string) => {
+  //   try {
+  //     if (currentUser) {
+  //       sendPushNotification(
+  //         receiverId,
+  //         currentUser.id,
+  //         message,
+  //         "You have an unread message",
+  //       );
+  //     }
+  //   } catch (err) {
+  //     console.log(err);
+  //   }
+  // };
 
   useEffect(() => {
     if (lastMessage == "") return;
@@ -188,33 +188,36 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
 
     let reminderSent = false;
 
-    const safeSendReminder = () => {
-      if (!reminderSent) {
-        SendReminder(receiverId, lastMessage);
-        reminderSent = true;
-      }
-    };
+    // const safeSendReminder = () => {
+    //   if (!reminderSent) {
+    //     SendReminder(receiverId, lastMessage);
+    //     reminderSent = true;
+    //   }
+    // };
 
-    const timeout = setTimeout(() => {
-      if (
-        lastSenderId &&
-        currentUserId &&
-        Number(lastSenderId) === Number(currentUserId)
-      ) {
-        safeSendReminder();
-      }
-    }, 2 * 60 * 1000);
+    const timeout = setTimeout(
+      () => {
+        // if (
+        //   lastSenderId &&
+        //   currentUserId &&
+        //   Number(lastSenderId) === Number(currentUserId)
+        // ) {
+        //   safeSendReminder();
+        // }
+      },
+      2 * 60 * 1000,
+    );
 
-    const handler = () => {
-      safeSendReminder();
-    };
+    // const handler = () => {
+    //   safeSendReminder();
+    // };
 
-    window.addEventListener("beforeunload", handler);
+    // window.addEventListener("beforeunload", handler);
 
     return () => {
       clearTimeout(timeout);
-      window.removeEventListener("beforeunload", handler);
-      safeSendReminder();
+      // window.removeEventListener("beforeunload", handler);
+      // safeSendReminder();
     };
   }, [lastMessage]);
 
@@ -245,8 +248,8 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
             setPendingMessages((prev) =>
               prev.filter(
                 (msg) =>
-                  !(msg.text === data.text && msg.sender_id === data.sender_id)
-              )
+                  !(msg.text === data.text && msg.sender_id === data.sender_id),
+              ),
             );
 
             setMessages((prev) => [...prev, data]);
@@ -425,13 +428,13 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
       const formData = new FormData();
       formData.append(
         "product",
-        currentProduct?.id.toString() ?? "Missing Book ID"
+        currentProduct?.id.toString() ?? "Missing Book ID",
       );
       formData.append("agreed_price", price.toString());
       formData.append("buyer_name", user.username ?? "Missing Name");
       formData.append(
         "buyer_whatsapp_contact",
-        user.whatsapp ?? "Missing WhatsApp"
+        user.whatsapp ?? "Missing WhatsApp",
       );
       formData.append("buyer_call_contact", user.call ?? "Missing Call");
 
@@ -446,10 +449,10 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
 
       router.push(
         `https://wa.me/2347046938727?text=Hello%20I%20am%20${encodeURIComponent(
-          user.username
+          user.username,
         )},%0AI%20just%20concluded%20an%20order%20for%20${encodeURIComponent(
-          currentProduct?.name ?? ""
-        )}%20(${currentProduct?.id})`
+          currentProduct?.name ?? "",
+        )}%20(${currentProduct?.id})`,
       );
     } catch (error: unknown) {
       console.error("Unexpected error in HandleOrder:", error);
@@ -484,26 +487,29 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
         setLastMessage(input);
         setInput("");
 
-        try {
-          if (currentUser && receiverId) {
-            sendPushNotification(
-              receiverId,
-              currentUser.id,
-              input,
-              "New Message"
-            );
-          }
-        } catch (err) {
-          console.log(err);
-        }
+        // try {
+        //   if (currentUser && receiverId) {
+        //     sendPushNotification(
+        //       receiverId,
+        //       currentUser.id,
+        //       input,
+        //       "New Message"
+        //     );
+        //   }
+        // } catch (err) {
+        //   console.log(err);
+        // }
 
-        setTimeout(() => {
-          setPendingMessages((prev) =>
-            prev.map((msg) =>
-              msg === pendingMsg ? { ...msg, analyzing: false } : msg
-            )
-          );
-        }, Math.random() * 1000 + 500);
+        setTimeout(
+          () => {
+            setPendingMessages((prev) =>
+              prev.map((msg) =>
+                msg === pendingMsg ? { ...msg, analyzing: false } : msg,
+              ),
+            );
+          },
+          Math.random() * 1000 + 500,
+        );
       } catch (error) {
         setError(`Failed to send message. Please try again, ${error}`);
         setPendingMessages((prev) => prev.filter((msg) => msg.text !== input));
