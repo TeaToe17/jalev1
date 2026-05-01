@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { fetchProducts, fetchCategories } from "@/lib/utils";
 import { AxiosError } from "axios";
+import { useAppContext } from "@/context";
 
 // Define the TypeScript interface for a single product
 interface Product {
@@ -68,6 +69,7 @@ export default function Home() {
   const [currentBanner, setCurrentBanner] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const bannerInterval = useRef<NodeJS.Timeout | null>(null);
+  const { isLoggedIn } = useAppContext();
   const [categories, setCategories] = useState<
     { id: number; name: string; icon: string }[]
   >([]);
@@ -130,6 +132,14 @@ export default function Home() {
       bannerInterval.current = setInterval(() => {
         setCurrentBanner((prev) => (prev + 1) % banners.length);
       }, 5000);
+    }
+  };
+
+  const handleSales = () => {
+    if (isLoggedIn) {
+      router.push("/myproducts");
+    } else {
+      router.push("/login");
     }
   };
 
@@ -226,7 +236,7 @@ export default function Home() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="bg-white text-[#1c2b3a] px-4 py-2 rounded-md font-medium hover:bg-opacity-90 transition-colors"
-              onClick={() => router.push("/myproducts")}
+              onClick={handleSales}
             >
               Sell on Jàle
             </motion.button>
@@ -501,7 +511,6 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
     ? `${product.image}`
     : // ? `${product.image}?tr=w-600,q-85,f-auto`
       "/placeholder.svg";
-
 
   return (
     <motion.div

@@ -72,8 +72,14 @@ const ProductClientComponent = () => {
   const pathname = usePathname();
   const { id } = useParams();
   const [product, setProduct] = useState<Product | null>(null);
-  const { setUrl, setCurrentProduct, setChangedCart, cart, setCart } =
-    useAppContext();
+  const {
+    setUrl,
+    setCurrentProduct,
+    setChangedCart,
+    cart,
+    setCart,
+    currentUser,
+  } = useAppContext();
   const [categories, setCategories] =
     useState<{ id: number; name: string }[]>();
   const [error, setError] = useState<string>("");
@@ -176,7 +182,7 @@ const ProductClientComponent = () => {
       formData.append("buyer_name", user.username ?? "Missing Name");
       formData.append(
         "buyer_whatsapp_contact",
-        user.whatsapp ?? "Missing WhatsApp"
+        user.whatsapp ?? "Missing WhatsApp",
       );
       formData.append("buyer_call_contact", user.call ?? "Missing Call");
 
@@ -189,10 +195,10 @@ const ProductClientComponent = () => {
         });
         router.push(
           `https://wa.me/2347046938727?text=Hello%20I%20am%20${encodeURIComponent(
-            user.username
+            user.username,
           )},%0AI%20just%20placed%20an%20order%20for%20${encodeURIComponent(
-            product?.name ?? ""
-          )}%20(${product?.id})`
+            product?.name ?? "",
+          )}%20(${product?.id})`,
         );
       } catch (apiError) {
         console.error("API Error:", apiError);
@@ -210,6 +216,9 @@ const ProductClientComponent = () => {
   };
 
   const HandleNegotiation = (receiverId: number) => {
+    // This is so users dont try to negotiate with themselves
+    if (receiverId == Number(currentUser?.id)) return;
+
     console.log(product, receiverId);
     if (product && receiverId) {
       setCurrentProduct(product);
@@ -284,10 +293,10 @@ const ProductClientComponent = () => {
             </button>
           </div>
           {/* <div className="flex items-center gap-3"> */}
-            {/* <button className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
+          {/* <button className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
               <Heart size={20} className="text-gray-600" />
             </button> */}
-            {/* <button
+          {/* <button
               onClick={() => shareViaWhatsApp()}
               className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
             >
@@ -433,7 +442,7 @@ const ProductClientComponent = () => {
                     {product.categories
                       .map((categoryId) => {
                         const category = categories?.find(
-                          (cat) => cat.id === categoryId
+                          (cat) => cat.id === categoryId,
                         );
                         return category ? (
                           <span
