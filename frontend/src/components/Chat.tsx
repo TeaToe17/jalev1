@@ -1,5 +1,5 @@
 "use client";
-import  React from "react";
+import React from "react";
 
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -94,6 +94,8 @@ const MessageItem = React.memo(
   ),
 );
 
+MessageItem.displayName = "MessageItem";
+
 const PendingMessageItem = React.memo(
   ({ msg, isCurrentUser }: { msg: Message; isCurrentUser: boolean }) => (
     <div className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
@@ -130,6 +132,8 @@ const PendingMessageItem = React.memo(
     </div>
   ),
 );
+
+PendingMessageItem.displayName = "PendingMessageItem";
 
 const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   const router = useRouter();
