@@ -17,6 +17,7 @@ import api from "@/lib/api";
 import { useAppContext } from "@/context";
 import { useRouter, usePathname } from "next/navigation";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import ChatList from "./ChatList";
 interface ChatProps {
   receiverId: number;
 }
@@ -159,21 +160,6 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     }
   };
 
-  // const SendReminder = (receiverId: number, message: string) => {
-  //   try {
-  //     if (currentUser) {
-  //       sendPushNotification(
-  //         receiverId,
-  //         currentUser.id,
-  //         message,
-  //         "You have an unread message",
-  //       );
-  //     }
-  //   } catch (err) {
-  //     console.log(err);
-  //   }
-  // };
-
   useEffect(() => {
     if (lastMessage == "") return;
 
@@ -185,40 +171,6 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
       localStorage.setItem("receiverId", JSON.stringify(receiverId));
       localStorage.setItem("message", JSON.stringify(lastMessage));
     }
-
-    let reminderSent = false;
-
-    // const safeSendReminder = () => {
-    //   if (!reminderSent) {
-    //     SendReminder(receiverId, lastMessage);
-    //     reminderSent = true;
-    //   }
-    // };
-
-    const timeout = setTimeout(
-      () => {
-        // if (
-        //   lastSenderId &&
-        //   currentUserId &&
-        //   Number(lastSenderId) === Number(currentUserId)
-        // ) {
-        //   safeSendReminder();
-        // }
-      },
-      2 * 60 * 1000,
-    );
-
-    // const handler = () => {
-    //   safeSendReminder();
-    // };
-
-    // window.addEventListener("beforeunload", handler);
-
-    return () => {
-      clearTimeout(timeout);
-      // window.removeEventListener("beforeunload", handler);
-      // safeSendReminder();
-    };
   }, [lastMessage]);
 
   useEffect(() => {
@@ -486,20 +438,6 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
         ws.send(JSON.stringify({ message: input }));
         setLastMessage(input);
         setInput("");
-
-        // try {
-        //   if (currentUser && receiverId) {
-        //     sendPushNotification(
-        //       receiverId,
-        //       currentUser.id,
-        //       input,
-        //       "New Message"
-        //     );
-        //   }
-        // } catch (err) {
-        //   console.log(err);
-        // }
-
         setTimeout(
           () => {
             setPendingMessages((prev) =>
@@ -631,7 +569,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
           </div>
         ) : (
           <div className="space-y-4">
-            {messages.map((msg, i) => {
+            {/* {messages.map((msg, i) => {
               const isCurrentUser =
                 currentUser && msg.sender_id === currentUser.id;
 
@@ -768,7 +706,13 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
                   </div>
                 </motion.div>
               );
-            })}
+            })} */}
+
+            <ChatList
+              messages={messages}
+              pendingMessages={pendingMessages}
+              currentUser={currentUser}
+            />
 
             <div ref={messagesEndRef} />
           </div>

@@ -72,3 +72,9 @@ body {
   animation: fadeIn 0.5s ease-out forwards;
 }
 
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+}
