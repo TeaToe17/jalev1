@@ -17,7 +17,6 @@ import api from "@/lib/api";
 import { useAppContext } from "@/context";
 import { useRouter, usePathname } from "next/navigation";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
-import ChatList from "./ChatList";
 interface ChatProps {
   receiverId: number;
 }
@@ -171,6 +170,8 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
       localStorage.setItem("receiverId", JSON.stringify(receiverId));
       localStorage.setItem("message", JSON.stringify(lastMessage));
     }
+
+
   }, [lastMessage]);
 
   useEffect(() => {
@@ -438,6 +439,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
         ws.send(JSON.stringify({ message: input }));
         setLastMessage(input);
         setInput("");
+
         setTimeout(
           () => {
             setPendingMessages((prev) =>
@@ -569,7 +571,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* {messages.map((msg, i) => {
+            {messages.map((msg, i) => {
               const isCurrentUser =
                 currentUser && msg.sender_id === currentUser.id;
 
@@ -706,13 +708,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
                   </div>
                 </motion.div>
               );
-            })} */}
-
-            <ChatList
-              messages={messages}
-              pendingMessages={pendingMessages}
-              currentUser={currentUser}
-            />
+            })}
 
             <div ref={messagesEndRef} />
           </div>
