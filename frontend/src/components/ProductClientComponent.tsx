@@ -216,9 +216,6 @@ const ProductClientComponent = () => {
   };
 
   const HandleNegotiation = (receiverId: number) => {
-    // This is so users dont try to negotiate with themselves
-    if (receiverId == Number(currentUser?.id)) return;
-
     console.log(product, receiverId);
     if (product && receiverId) {
       setCurrentProduct(product);
@@ -497,45 +494,50 @@ const ProductClientComponent = () => {
                       </p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-4 mt-6">
-                      {cart.some((item) => item.product == product.id) ? (
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => router.push("/cart")}
-                          className="flex-1 bg-gradient-to-r from-[#1c2b3a] to-[#1c2b3a] text-white px-6 py-3 rounded-lg shadow hover:opacity-90 transition-opacity font-medium"
-                        >
-                          Go to cart
-                        </motion.button>
-                      ) : cartClicked ? (
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => router.push("/cart")}
-                          className="flex-1 bg-gradient-to-r from-[#1c2b3a] to-[#1c2b3a] text-white px-6 py-3 rounded-lg shadow hover:opacity-90 transition-opacity font-medium"
-                        >
-                          Go to cart
-                        </motion.button>
-                      ) : (
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => AddtoCart(product)}
-                          className="flex-1 bg-gradient-to-r from-[#1c2b3a] to-[#1c2b3a] text-white px-6 py-3 rounded-lg shadow hover:opacity-90 transition-opacity font-medium"
-                        >
-                          Add to cart
-                        </motion.button>
+                      {product.owner !== Number(currentUser?.id) && (
+                        <>
+                          {cart.some((item) => item.product == product.id) ? (
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => router.push("/cart")}
+                              className="flex-1 bg-gradient-to-r from-[#1c2b3a] to-[#1c2b3a] text-white px-6 py-3 rounded-lg shadow hover:opacity-90 transition-opacity font-medium"
+                            >
+                              Go to cart
+                            </motion.button>
+                          ) : cartClicked ? (
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => router.push("/cart")}
+                              className="flex-1 bg-gradient-to-r from-[#1c2b3a] to-[#1c2b3a] text-white px-6 py-3 rounded-lg shadow hover:opacity-90 transition-opacity font-medium"
+                            >
+                              Go to cart
+                            </motion.button>
+                          ) : (
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => AddtoCart(product)}
+                              className="flex-1 bg-gradient-to-r from-[#1c2b3a] to-[#1c2b3a] text-white px-6 py-3 rounded-lg shadow hover:opacity-90 transition-opacity font-medium"
+                            >
+                              Add to cart
+                            </motion.button>
+                          )}
+                        </>
                       )}
 
-                      {product.negotiable && (
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => HandleNegotiation(product.owner)}
-                          className="flex-1 bg-gradient-to-r from-[#fcecd8] to-[#fcecd8] text-[#1c2b3a] px-6 py-3 rounded-lg shadow border border-[#1c2b3a]/20 hover:opacity-90 transition-opacity font-medium"
-                        >
-                          Negotiate Price
-                        </motion.button>
-                      )}
+                      {product.owner !== Number(currentUser?.id) &&
+                        product.negotiable && (
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => HandleNegotiation(product.owner)}
+                            className="flex-1 bg-gradient-to-r from-[#fcecd8] to-[#fcecd8] text-[#1c2b3a] px-6 py-3 rounded-lg shadow border border-[#1c2b3a]/20 hover:opacity-90 transition-opacity font-medium"
+                          >
+                            Negotiate Price
+                          </motion.button>
+                        )}
                     </div>
                   </div>
                 )}
