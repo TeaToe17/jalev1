@@ -1,7 +1,7 @@
 "use client";
-import type React from "react";
+import  React from "react";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send,
@@ -16,7 +16,7 @@ import { connectToChat, fetchProducts, fetchUser, LoggedIn } from "@/lib/utils";
 import api from "@/lib/api";
 import { useAppContext } from "@/context";
 import { useRouter, usePathname } from "next/navigation";
-import { usePushNotifications } from "@/hooks/use-push-notifications";
+
 interface ChatProps {
   receiverId: number;
 }
@@ -63,6 +63,74 @@ interface Message {
   owner_id?: number;
 }
 
+// Memoized message components for performance
+const MessageItem = React.memo(
+  ({ msg, isCurrentUser }: { msg: Message; isCurrentUser: boolean }) => (
+    <div className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`max-w-[80%] rounded-lg px-4 py-3 ${
+          isCurrentUser
+            ? "bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] text-white"
+            : "bg-white border border-gray-200 text-gray-800"
+        }`}
+      >
+        {!isCurrentUser && (
+          <div className="font-semibold mb-1 text-sm">
+            {msg.sender_id === "system" ? "System" : `User #${msg.sender_id}`}
+          </div>
+        )}
+        <div className="text-sm sm:text-base">{msg.text}</div>
+        {msg.created_at && (
+          <div
+            className={`text-xs mt-1 ${
+              isCurrentUser ? "text-white/70" : "text-gray-500"
+            }`}
+          >
+            {msg.created_at}
+          </div>
+        )}
+      </div>
+    </div>
+  ),
+);
+
+const PendingMessageItem = React.memo(
+  ({ msg, isCurrentUser }: { msg: Message; isCurrentUser: boolean }) => (
+    <div className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`max-w-[80%] rounded-lg px-4 py-3 ${
+          isCurrentUser
+            ? "bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a]/80 text-white"
+            : "bg-white border border-gray-200 text-gray-800"
+        }`}
+      >
+        {!isCurrentUser && (
+          <div className="font-semibold mb-1 text-sm">
+            {msg.sender_id === "system" ? "System" : `User #${msg.sender_id}`}
+          </div>
+        )}
+        <div className="text-sm sm:text-base">{msg.text}</div>
+        {msg.analyzing && (
+          <div className="flex items-center gap-1 mt-2">
+            <div className="w-2 h-2 bg-current rounded-full animate-bounce" />
+            <div className="w-2 h-2 bg-current rounded-full animate-bounce delay-100" />
+            <div className="w-2 h-2 bg-current rounded-full animate-bounce delay-200" />
+          </div>
+        )}
+        {msg.created_at && (
+          <div
+            className={`text-xs mt-1 ${
+              isCurrentUser ? "text-white/70" : "text-gray-500"
+            }`}
+          >
+            {msg.created_at}
+          </div>
+        )}
+      </div>
+    </div>
+  ),
+);
+
 const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -90,7 +158,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     productPrice: 0,
   });
   const [isHydrated, setIsHydrated] = useState(false);
-  // const { sendPushNotification } = usePushNotifications();
+  const localStorageSaveTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -130,7 +198,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
       };
       loadProduct();
     }
-  }, [messages, isHydrated]);
+  }, [isHydrated]);
 
   const fetchHistory = async () => {
     setIsLoading(true);
@@ -162,17 +230,11 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   useEffect(() => {
     if (lastMessage == "") return;
 
-    const last_msg = messages.at(-1);
-    const lastSenderId = Number(last_msg?.sender_id);
-    const currentUserId = Number(currentUser?.id);
-
     if (receiverId) {
       localStorage.setItem("receiverId", JSON.stringify(receiverId));
       localStorage.setItem("message", JSON.stringify(lastMessage));
     }
-
-
-  }, [lastMessage]);
+  }, [lastMessage, receiverId]);
 
   useEffect(() => {
     if (!receiverId || !LoggedIn()) return;
@@ -221,19 +283,16 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
 
           if (match) {
             const price = Number.parseInt(match[1], 10);
-
             HandleOrder(price);
-
             localStorage.removeItem("ownerId");
             localStorage.removeItem("productId");
-
             setShowOrderSuccess(true);
           }
         };
 
         socket.onopen = () => {
           console.log("WS OPEN");
-          retryCount = 0; // reset retry count on success
+          retryCount = 0;
           setError(null);
         };
 
@@ -243,12 +302,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
 
         socket.onclose = (event) => {
           console.log("WebSocket connection closed");
-          // console.log("EVENT:", event);
-          // console.log("CLOSE CODE:", event.code);
-          // console.log("REASON:", event.reason);
-          // console.log("WAS CLEAN:", event.wasClean);
 
-          // Retry logic ONLY for abnormal closures
           if (event.code === 1006 || !event.wasClean) {
             if (retryCount < MAX_RETRIES) {
               retryCount++;
@@ -269,7 +323,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
       }
     };
 
-    connect(); // initial connect attempt
+    connect();
 
     return () => {
       if (
@@ -283,11 +337,17 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     };
   }, [receiverId, currentProduct]);
 
+  // Debounced localStorage save
   useEffect(() => {
     if (messages.length !== 0) {
-      localStorage.setItem("messages", JSON.stringify(messages));
-    }
-    if (messages.length == 0) {
+      if (localStorageSaveTimer.current) {
+        clearTimeout(localStorageSaveTimer.current);
+      }
+
+      localStorageSaveTimer.current = setTimeout(() => {
+        localStorage.setItem("messages", JSON.stringify(messages));
+      }, 500);
+    } else if (messages.length == 0) {
       const storedMessages = localStorage.getItem("messages");
       if (storedMessages) {
         const parsed = JSON.parse(storedMessages);
@@ -296,6 +356,12 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
         }
       }
     }
+
+    return () => {
+      if (localStorageSaveTimer.current) {
+        clearTimeout(localStorageSaveTimer.current);
+      }
+    };
   }, [messages]);
 
   useEffect(() => {
@@ -473,7 +539,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
 
   useEffect(() => {
     if (!LoggedIn()) router.replace("/login");
-  }, []);
+  }, [router]);
 
   if (!isHydrated) {
     return (
@@ -576,44 +642,11 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
                 currentUser && msg.sender_id === currentUser.id;
 
               return (
-                <motion.div
+                <MessageItem
                   key={`msg-${i}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05, duration: 0.3 }}
-                  className={`flex ${
-                    isCurrentUser ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-lg px-4 py-3 ${
-                      isCurrentUser
-                        ? "bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] text-white"
-                        : "bg-white border border-gray-200 text-gray-800"
-                    }`}
-                  >
-                    {!isCurrentUser && (
-                      <div className="font-semibold mb-1 text-sm">
-                        {msg.sender_id === "system"
-                          ? "System"
-                          : `User #${msg.sender_id}`}
-                      </div>
-                    )}
-                    <div
-                      className="text-sm sm:text-base"
-                      dangerouslySetInnerHTML={{ __html: msg.text }}
-                    />
-                    {msg.created_at && (
-                      <div
-                        className={`text-xs mt-1 ${
-                          isCurrentUser ? "text-white/70" : "text-gray-500"
-                        }`}
-                      >
-                        {msg.created_at}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
+                  msg={msg}
+                  isCurrentUser={!!isCurrentUser}
+                />
               );
             })}
 
@@ -622,263 +655,105 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
                 currentUser && msg.sender_id === currentUser.id;
 
               return (
-                <motion.div
+                <PendingMessageItem
                   key={`pending-${i}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className={`flex ${
-                    isCurrentUser ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-lg px-4 py-3 ${
-                      isCurrentUser
-                        ? "bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a]/80 text-white"
-                        : "bg-white border border-gray-200 text-gray-800"
-                    }`}
-                  >
-                    {!isCurrentUser && (
-                      <div className="font-semibold mb-1 text-sm">
-                        {msg.sender_id === "system"
-                          ? "System"
-                          : `User #${msg.sender_id}`}
-                      </div>
-                    )}
-                    <div className="text-sm sm:text-base">{msg.text}</div>
-
-                    {msg.analyzing && (
-                      <div
-                        className={`flex items-center gap-2 mt-1 ${
-                          isCurrentUser ? "text-white/80" : "text-gray-600"
-                        }`}
-                      >
-                        <Brain
-                          size={14}
-                          className={
-                            isCurrentUser ? "text-white/80" : "text-[#1c2b3a]"
-                          }
-                        />
-                        <div className="text-xs font-medium flex items-center">
-                          Analyzing
-                          <span className="ml-1 flex">
-                            <motion.span
-                              animate={{ opacity: [0, 1, 0] }}
-                              transition={{
-                                repeat: Number.POSITIVE_INFINITY,
-                                duration: 1.5,
-                                times: [0, 0.5, 1],
-                              }}
-                              className="h-1 w-1 mx-0.5 rounded-full bg-current"
-                            />
-                            <motion.span
-                              animate={{ opacity: [0, 1, 0] }}
-                              transition={{
-                                repeat: Number.POSITIVE_INFINITY,
-                                duration: 1.5,
-                                delay: 0.2,
-                                times: [0, 0.5, 1],
-                              }}
-                              className="h-1 w-1 mx-0.5 rounded-full bg-current"
-                            />
-                            <motion.span
-                              animate={{ opacity: [0, 1, 0] }}
-                              transition={{
-                                repeat: Number.POSITIVE_INFINITY,
-                                duration: 1.5,
-                                delay: 0.4,
-                                times: [0, 0.5, 1],
-                              }}
-                              className="h-1 w-1 mx-0.5 rounded-full bg-current"
-                            />
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {msg.created_at && (
-                      <div
-                        className={`text-xs mt-1 ${
-                          isCurrentUser ? "text-white/70" : "text-gray-500"
-                        }`}
-                      >
-                        {msg.created_at}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
+                  msg={msg}
+                  isCurrentUser={!!isCurrentUser}
+                />
               );
             })}
-
             <div ref={messagesEndRef} />
           </div>
         )}
       </div>
 
-      {isProductOwner && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a]/90 p-4 rounded-lg mb-4 shadow-md"
-        >
-          <div className="mb-4 p-3 bg-white/10 rounded-md backdrop-blur-sm">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              {productDetails.productImage && (
-                <img
-                  src={productDetails.productImage || "/placeholder.svg"}
-                  alt={productDetails.productName}
-                  className="w-16 h-16 object-cover rounded-md border border-white/30"
-                />
-              )}
-              <div className="flex-1">
-                <h3 className="text-white font-semibold text-lg">
-                  {productDetails.productName || "Product Name"}
-                </h3>
-                <p className="text-white/80 text-sm">
-                  Price: {productDetails.productPrice || 0}
-                </p>
-              </div>
+      {showDiv && productDetails.productName && (
+        <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex gap-4 items-center bg-white p-4 rounded-lg shadow-sm">
+            {productDetails.productImage && (
+              <img
+                src={productDetails.productImage}
+                alt={productDetails.productName}
+                className="w-16 h-16 object-cover rounded"
+              />
+            )}
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900">
+                {productDetails.productName}
+              </h3>
+              <p className="text-sm text-gray-600">
+                ₦{productDetails.productPrice.toLocaleString()}
+              </p>
             </div>
+            <button
+              onClick={() => setShowDiv(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X size={20} />
+            </button>
           </div>
+        </div>
+      )}
 
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <div className="flex items-center gap-2 text-white">
-              <ShoppingBag size={20} />
-              <span className="font-medium">Authorize Order</span>
+      {isProductOwner && (
+        <div className="p-4 border-t border-gray-200 bg-gradient-to-r from-[#fcecd8]/20 to-[#1c2b3a]/20">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[#1c2b3a]">
+              <Brain size={16} />
+              Confirm Deal
             </div>
-            <div className="flex-1 flex flex-col sm:flex-row gap-3">
+            <div className="flex gap-2">
               <input
                 type="number"
-                placeholder="Agreed Price e.g 5000"
+                placeholder="Agreed price..."
                 value={agreedPrice}
                 onChange={(e) => setAgreedPrice(e.target.value)}
-                className="px-4 py-2 rounded-md border border-white/30 bg-white/10 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 w-full sm:w-auto"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1c2b3a]"
               />
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              <button
                 onClick={ApproveOrder}
-                disabled={isSending || !agreedPrice}
-                className={`px-4 py-2 rounded-md flex items-center justify-center gap-2 transition-colors ${
-                  isSending || !agreedPrice
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-white text-[#1c2b3a] hover:bg-opacity-90"
-                }`}
+                disabled={isSending}
+                className="px-4 py-2 bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-all font-semibold flex items-center gap-2"
               >
                 {isSending ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    <span>Processing...</span>
+                    Confirming...
                   </>
                 ) : (
                   <>
                     <Check size={16} />
-                    <span>Authorize Order</span>
+                    Confirm
                   </>
                 )}
-              </motion.button>
-            </div>
-            <p className="text-white font-medium">
-              Payout: {Number(agreedPrice) * 0.9}
-            </p>
-          </div>
-        </motion.div>
-      )}
-
-      <AnimatePresence>
-        <>
-          {error == "This input is not allowed." && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2"
-            >
-              <AlertCircle size={20} />
-              <p>{error}</p>
-              <button
-                onClick={() => setError(null)}
-                className="ml-auto text-red-700 hover:text-red-900"
-              >
-                <X size={16} />
               </button>
-            </motion.div>
-          )}
-        </>
-      </AnimatePresence>
-
-      {showDiv && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="bg-gradient-to-r from-[#fcecd8]/50 to-[#1c2b3a]/10 border border-[#fcecd8] rounded-lg p-2 shadow-sm"
-        >
-          <div className="flex items-start gap-3">
-            <div className="text-[#1c2b3a] mt-0.5">
-              <AlertCircle size={20} />
-            </div>
-
-            <div>
-              <h4 className="font-medium text-[#1c2b3a] mb-1">
-                Important Information for Buyers
-              </h4>
-              <p className="text-sm text-gray-700">
-                Buyers must order via{" "}
-                <span className="font-semibold text-[#1c2b3a]">
-                  "Negotiate"
-                </span>{" "}
-                for seller approval. If <b>Authorize Order</b> isnt shown, let
-                buyer go back, use "Negotiate" button, and resend a message.
-                Seller Authorizes order after succesful negotiation.
-              </p>
-            </div>
-
-            <div
-              onClick={() => setShowDiv(false)}
-              className="text-[#1c2b3a] mt-0.5 text-right"
-            >
-              <X size={20} />
             </div>
           </div>
-        </motion.div>
+        </div>
       )}
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white border-t border-gray-200 p-4"
+      <form
+        onSubmit={sendMessage}
+        className="p-4 border-t border-gray-200 bg-white"
       >
-        <form onSubmit={sendMessage} className="flex gap-2">
+        <div className="flex gap-2">
           <input
             type="text"
             value={input}
-            onChange={(e) => handleChange(e)}
+            onChange={handleChange}
             placeholder="Type your message..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1c2b3a] focus:border-transparent transition-colors"
             disabled={isSending}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1c2b3a] disabled:bg-gray-100"
           />
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+          <button
             type="submit"
             disabled={isSending || !input.trim()}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-              !input.trim()
-                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] text-white"
-            }`}
+            className="px-4 py-2 bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-all"
           >
-            {isSending ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <Send size={18} />
-            )}
-            <span className="hidden sm:inline">Send</span>
-          </motion.button>
-        </form>
-      </motion.div>
+            <Send size={20} />
+          </button>
+        </div>
+      </form>
     </div>
   );
 };
