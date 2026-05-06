@@ -6,12 +6,6 @@ class CustomUserAdmin(admin.ModelAdmin):
     model = CustomUser
     list_display = ('id', 'username', 'email', 'whatsapp', 'call')
 
-# @admin.register(UserFCMToken)
-# class UserFCMTokenAdmin(admin.ModelAdmin):
-#     model = UserFCMToken
-#     list_display = ("user", "token", "created_at")
-#     # list_display = ("user", "token", "created_at")
-
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
     model = Message
@@ -25,4 +19,4 @@ class ChatPreviewAdmin(admin.ModelAdmin):
 @admin.register(PushSubscription)
 class PushSubscriptionAdmin(admin.ModelAdmin):
     model = PushSubscription
-    list_display = ("endpoint", "p256dh", "auth", "created_at")
+    list_display = ("user","endpoint", "p256dh", "auth", "creation_date")

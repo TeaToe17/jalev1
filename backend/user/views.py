@@ -14,7 +14,8 @@ from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from django.http import JsonResponse
 from dotenv import load_dotenv
-import os, time, threading, ast, json
+from django.utils import timezone
+import os, time, threading, ast, json, logging
 
 
 from .serializers import CustomTokenObtainPairSerializer , MessageSerializer, UserSerializer, ChatPreviewSerializer, PasswordResetSerializer, MessageBooleanSerializer
@@ -23,6 +24,7 @@ from product.tasks import browser_notify
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -46,30 +48,6 @@ class ListUserView(generics.RetrieveAPIView):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
-    
-# class UserFCMTokenView(generics.CreateAPIView):
-#     permission_classes = [IsAuthenticated]
-#     serializer_class = PermissionTokenSerializer
-
-#     def create(self, request, *args, **kwargs):
-#         serializer = self.get_serializer(data=request.data, context={"request": request})
-
-#         if not serializer.is_valid():
-#             print("🔴 Serializer Errors:", serializer.errors)
-#             return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
-
-#         sub_value = serializer.validated_data.get("subscription")
-#         user = request.user
-
-#         # Check for duplication
-#         if UserFCMToken.objects.filter(user=user, subscription=sub_value).exists():
-#             print("🟡 Subscription already exists for user")
-#             return Response({"message": "Subscription already exists for user"}, status=status.HTTP_200_OK)
-        
-#         # Save if not duplicate
-#         serializer.save(user=user)
-#         print("✅ Subscription saved for user")
-#         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
@@ -77,7 +55,6 @@ def delete_webpush_token_view(request):
     """Delete the WebPush token for the authenticated user."""
     
     token = PushSubscription.objects.filter(user=request.user).first()
-    
     if token:
         token.delete()
         return Response({"message": "Token deleted successfully"}, status=200)
@@ -88,19 +65,62 @@ def delete_webpush_token_view(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def save_subscription(request):
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+        subscription = data.get("subscription", {})
 
-    subscription = data.get("subscription")
-    print("data", data)
+        endpoint = subscription.get("endpoint")
+        keys = subscription.get("keys", {})
+        p256dh = keys.get("p256dh")
+        auth = keys.get("auth")
 
-    PushSubscription.objects.create(
-        user = request.user,
-        endpoint=subscription["endpoint"],
-        p256dh=subscription["keys"]["p256dh"],
-        auth=subscription["keys"]["auth"],
-    )
+        # 🔍 Basic validation
+        if not endpoint or not p256dh or not auth:
+            logger.warning(f"[SAVE_SUB] Missing fields from user={request.user.id}")
+            return JsonResponse({
+                "status": "error",
+                "message": "Invalid subscription data"
+            }, status=400)
 
-    return JsonResponse({"status":"saved"})
+        logger.info(f"[SAVE_SUB] User={request.user.id}")
+        logger.info(f"[SAVE_SUB] Endpoint={endpoint}")  # log full once for debugging
+        logger.info(f"[SAVE_SUB] p256dh={p256dh[:20]}...")
+        logger.info(f"[SAVE_SUB] auth={auth[:20]}...")
+
+        # 🔍 Count before
+        before_count = PushSubscription.objects.filter(user=request.user).count()
+        logger.info(f"[SAVE_SUB] Total subs BEFORE = {before_count}")
+
+        sub, created = PushSubscription.objects.update_or_create(
+            user=request.user,
+            endpoint=endpoint,
+            defaults={
+                "p256dh": p256dh,
+                "auth": auth,
+                "creation_date": timezone.now()
+            }
+        )
+
+        action = "CREATED" if created else "UPDATED"
+        logger.info(f"[SAVE_SUB] {action} subscription ID={sub.id}")
+
+        # 🔍 Count after
+        after_count = PushSubscription.objects.filter(user=request.user).count()
+        logger.info(f"[SAVE_SUB] Total subs AFTER = {after_count}")
+
+        return JsonResponse({
+            "status": "success",
+            "action": action.lower(),
+            "subscription_id": sub.id,
+            "total_now": after_count
+        })
+
+    except Exception as e:
+        logger.exception("[SAVE_SUB] ERROR occurred")
+        return JsonResponse({
+            "status": "error",
+            "error": str(e)
+        }, status=500)
 
 class ListMessagesView(generics.ListAPIView):
     # serializer_class = MessageSerializer
@@ -127,24 +147,6 @@ class ListChatPreview(generics.ListAPIView):
             ).distinct()
 
 from django.db.models.signals import post_save
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def send_message_push_notification(request):
-    try:
-        user_Id = request.data.get("receiverId")
-        subject = "New Message"
-        message = request.data.get("message")
-        url = str(f"https://{os.getenv('JALE_DYNAMIC_URL')}/chat/{request.data.get('senderId')}")
-
-
-        # This task is loacted in product.task because its also used for Products
-        browser_notify(user_Id, subject, message, url)
-        print("Signals", post_save.receivers)
-        
-        return Response({'status': 'Notification task queued'})
-    except Exception as e:
-        return Response({'error': str(e)}, status=400)
 
 class PasswordResetView(generics.CreateAPIView):
     serializer_class = PasswordResetSerializer

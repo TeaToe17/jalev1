@@ -140,6 +140,7 @@ const Form = ({ route, method }: FormProps) => {
         localStorage.setItem(REFRESH_TOKEN, refresh);
         setIsLoggedIn(true);
         setSuccess("Login successful! Redirecting...");
+        
 
         setTimeout(() => {
           router.push(url ? `${url}` : "/");

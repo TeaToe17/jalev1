@@ -18,14 +18,6 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return f"{self.id}-{self.username}"
 
-# class UserFCMToken(models.Model):
-#     user = models.ForeignKey("user.CustomUser", on_delete=models.CASCADE, related_name="fcm_tokens", null=True)
-#     token = models.TextField(null=True, blank=True)
-#     subscription = models.JSONField(null=True, blank=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     def __str__(self):
-#         return f"{self.user.username}-{self.token}-{self.created_at}"
 
 class Message(models.Model):
     sender = models.ForeignKey("user.CustomUser", on_delete=models.CASCADE, related_name='sent_messages', null=True)
@@ -62,7 +54,10 @@ class PushSubscription(models.Model):
     endpoint = models.TextField()
     p256dh  = models.TextField()
     auth = models.TextField()
-    created_at = models.TimeField(auto_now_add=True)
+    creation_date = models.DateTimeField(auto_now_add=True, null=True)
+
+    class Meta:
+        unique_together = ("user", "endpoint")
 
     def __str__(self):
         return self.endpoint
