@@ -8,8 +8,6 @@ const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
 });
 
-console.log(process.env.NEXT_PUBLIC_API_URL);
-
 const refreshTokenEndpoint = "/api/token/refresh/";
 const publicEndpoints = ["book/list/"]; // Add other public endpoints
 

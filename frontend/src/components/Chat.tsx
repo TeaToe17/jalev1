@@ -144,6 +144,8 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   const router = useRouter();
   const pathname = usePathname();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLFormElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -381,9 +383,21 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
 
   useLayoutEffect(() => {
     requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView();
+      const container = messagesContainerRef.current;
+      const footer = footerRef.current;
+
+      if (!container) return;
+
+      const footerHeight = footer?.offsetHeight || 80;
+
+      const offset = footerHeight + 24;
+
+      container.scrollTo({
+        top: container.scrollHeight - container.clientHeight + offset,
+        behavior: "smooth",
+      });
     });
-  }, [messages, pendingMessages]);
+  }, [allMessages.length]);
 
   useEffect(() => {
     if (ownerId && productId) {
@@ -624,7 +638,10 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
         </>
       </AnimatePresence>
 
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-4 flex flex-col gap-4"
+      >
         {isLoading && messages.length === 0 && (
           <div className="flex items-center justify-center h-full">
             <Loader2 size={40} className="text-[#1c2b3a] animate-spin" />
@@ -689,6 +706,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
       )}
 
       <form
+        ref={footerRef}
         onSubmit={sendMessage}
         className="border-t border-gray-200 p-4 bg-white"
       >

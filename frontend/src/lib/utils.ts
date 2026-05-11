@@ -232,50 +232,11 @@ export function useGlobalListener() {
 
       // Optional:
       // Only close if you truly want global cleanup
-      // ws?.close();
+      ws?.close();
     };
   }, [isLoggedIn]);
 }
 
-// export function connectToChat(
-//   receiverId: number,
-//   productId: number = 0,
-//   ownerId: number = 0,
-// ) {
-//   const token = localStorage.getItem("access");
-//   if (!token) {
-//     // alert("Please Login to chat");
-//     return null;
-//   }
-
-//   const ws =
-//     process.env.NEXT_PUBLIC_ENVIRONMENT === "development"
-//       ? new WebSocket(
-//           productId
-//             ? `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
-//             : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`,
-//         )
-//       : new WebSocket(
-//           productId
-//             ? `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
-//             : `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}`,
-//         );
-
-//   ws.onopen = () => {
-//     console.log("Opened");
-//   };
-
-//   ws.onerror = () => {
-//     console.log("error happened");
-//   };
-
-//   ws.onclose = (event) => {
-//     console.log("CLOSE CODE:", event.code);
-//     console.log("REASON:", event.reason);
-//     console.log("WAS CLEAN:", event.wasClean);
-//   };
-//   return ws;
-// }
 
 export function connectToChat(ws: WebSocket | null, receiverId: number) {
   if (!ws) {
