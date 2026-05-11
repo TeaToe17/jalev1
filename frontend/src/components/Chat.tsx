@@ -259,11 +259,13 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     }
   }, [lastMessage, receiverId]);
 
+  // Fetch chat history when receiverId and WebSocket are ready
   useEffect(() => {
-    if (!receiverId || hasLoadedHistory.current) return;
+    if (!receiverId || !LoggedIn() || !ws) return;
+    if (hasLoadedHistory.current) return; // Only fetch once
 
     fetchHistory();
-  }, [receiverId]);
+  }, [receiverId, ws]);
 
   useEffect(() => {
     if (!receiverId || !LoggedIn()) return;
