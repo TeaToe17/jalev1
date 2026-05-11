@@ -145,7 +145,6 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   const pathname = usePathname();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const footerRef = useRef<HTMLFormElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -162,6 +161,8 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   const [currentUser, setCurrentUser] = useState<CustomUser | null>(null);
   const [showDiv, setShowDiv] = useState(true);
   const [lastMessage, setLastMessage] = useState<string>("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const [productDetails, setProductDetails] = useState({
     productImage: "",
     productName: "",
@@ -171,11 +172,13 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   const localStorageSaveTimer = useRef<NodeJS.Timeout | null>(null);
   const hasLoadedHistory = useRef(false);
 
-  const allMessages = [...messages, ...pendingMessages].sort(
-    (a, b) =>
-      new Date(a.timestamp || "").getTime() -
-      new Date(b.timestamp || "").getTime(),
-  );
+  const allMessages = [...messages, ...pendingMessages]
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(a.timestamp || "").getTime() -
+        new Date(b.timestamp || "").getTime(),
+    );
 
   useEffect(() => {
     setIsHydrated(true);
@@ -257,13 +260,14 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   }, [lastMessage, receiverId]);
 
   useEffect(() => {
-    if (!receiverId || !LoggedIn()) return;
-    if (!ws) {
-      setError("WebSocket not initialized");
-      return;
-    }
+    if (!receiverId || hasLoadedHistory.current) return;
 
     fetchHistory();
+  }, [receiverId]);
+
+  useEffect(() => {
+    if (!receiverId || !LoggedIn()) return;
+    if (!ws) return;
 
     // optional handshake only (NOT required for routing anymore)
     connectToChat(ws, receiverId);
@@ -331,12 +335,12 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
       }
     };
 
-    ws.addEventListener("message", handleMessage);
+    ws?.addEventListener("message", handleMessage);
 
     return () => {
-      ws.removeEventListener("message", handleMessage);
+      ws?.removeEventListener("message", handleMessage);
     };
-  }, [receiverId, currentProduct, ws]);
+  }, [receiverId, ws]);
 
   // Debounced localStorage save
   useEffect(() => {
@@ -381,23 +385,11 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     }
   }, [messages, currentUser?.id, receiverId, setMessageTrigger]);
 
-  useLayoutEffect(() => {
-    requestAnimationFrame(() => {
-      const container = messagesContainerRef.current;
-      const footer = footerRef.current;
-
-      if (!container) return;
-
-      const footerHeight = footer?.offsetHeight || 80;
-
-      const offset = footerHeight + 24;
-
-      container.scrollTo({
-        top: container.scrollHeight - container.clientHeight + offset,
-        behavior: "smooth",
-      });
-    });
-  }, [allMessages.length]);
+  useEffect(() => {
+    if (isHydrated && inputRef.current) {
+      inputRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [isHydrated, allMessages.length]);
 
   useEffect(() => {
     if (ownerId && productId) {
@@ -706,12 +698,12 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
       )}
 
       <form
-        ref={footerRef}
         onSubmit={sendMessage}
         className="border-t border-gray-200 p-4 bg-white"
       >
         <div className="flex gap-2">
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={handleChange}
