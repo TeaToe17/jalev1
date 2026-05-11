@@ -138,14 +138,6 @@ const firebaseConfig = {
 // Initialize
 
 let analytics, messaging;
-// if (typeof window !== "undefined") {
-//   const app = initializeApp(firebaseConfig);
-//   messaging = getMessaging(app);
-
-//   getToken(messaging, {
-//     vapidKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-//   }).catch((err) => console.error("Error getting FCM token:", err));
-// }
 export { analytics, messaging };
 
 export const IsUser = () => {
@@ -154,123 +146,157 @@ export const IsUser = () => {
 };
 
 export function useGlobalListener() {
-  const { setGlobalMessages, isLoggedIn } = useAppContext();
-  const retryCount = useRef(0); // Track number of retries
+  const { setGlobalMessages, isLoggedIn, setWs, ws } = useAppContext();
+
+  const retryCount = useRef(0);
 
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    let ws: WebSocket | null = null;
     let reconnectTimeout: NodeJS.Timeout | null = null;
 
     const connectWebSocket = () => {
       if (typeof window === "undefined") return;
 
-      const token = localStorage.getItem(ACCESS_TOKEN);
-      if (!token) {
-        // alert("Please login to access chat feature");
+      // Prevent duplicate active connections
+      if (
+        ws &&
+        (ws.readyState === WebSocket.OPEN ||
+          ws.readyState === WebSocket.CONNECTING)
+      ) {
+        console.log("WebSocket already active");
         return;
       }
+
+      const token = localStorage.getItem(ACCESS_TOKEN);
+
+      if (!token) return;
 
       const decoded: Decoded = jwtDecode(token);
       const userId = decoded.user_id;
 
-      // ws = new WebSocket(
-      //   // `ws://localhost:8000/ws/global_chat/${userId}/?token=${token}`
-      //   `wss://jalev1.onrender.com/ws/global_chat/${userId}/?token=${token}`,
-      // );
-
-      ws =
+      const socket =
         process.env.NEXT_PUBLIC_ENVIRONMENT === "development"
           ? new WebSocket(
-              `ws://localhost:8000/ws/global_chat/${userId}/?token=${token}`,
+              `ws://localhost:8000/ws/chat/${userId}/?token=${token}`,
             )
           : new WebSocket(
-              `wss://jalev1.onrender.com/ws/global_chat/${userId}/?token=${token}`,
+              `wss://jalev1.onrender.com/ws/chat/${userId}/?token=${token}`,
             );
 
-      ws.onopen = () => {
+      // Save globally
+      setWs(socket);
+
+      socket.onopen = () => {
         console.log("Global WebSocket opened");
-        retryCount.current = 0; // Reset retry count on successful connection
+        retryCount.current = 0;
       };
 
-      ws.onmessage = (e) => {
+      socket.onmessage = (e) => {
         const data = JSON.parse(e.data);
+
         if (data.scope === "personal") {
           setGlobalMessages(data);
         }
       };
 
-      ws.onclose = () => {
+      socket.onclose = () => {
         console.log("Global WebSocket closed");
+
+        setWs(null);
 
         if (retryCount.current < 2) {
           retryCount.current += 1;
+
           console.log(
             `Retrying WebSocket connection... (Attempt ${retryCount.current})`,
           );
+
           reconnectTimeout = setTimeout(() => {
             connectWebSocket();
           }, 3000);
         }
+      };
+
+      socket.onerror = (err) => {
+        console.log("WebSocket error", err);
       };
     };
 
     connectWebSocket();
 
     return () => {
-      if (ws) ws.close();
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+
+      // Optional:
+      // Only close if you truly want global cleanup
+      // ws?.close();
     };
   }, [isLoggedIn]);
 }
 
-export function connectToChat(
-  receiverId: number,
-  productId: number = 0,
-  ownerId: number = 0,
-) {
-  const token = localStorage.getItem("access");
-  if (!token) {
-    // alert("Please Login to chat");
+// export function connectToChat(
+//   receiverId: number,
+//   productId: number = 0,
+//   ownerId: number = 0,
+// ) {
+//   const token = localStorage.getItem("access");
+//   if (!token) {
+//     // alert("Please Login to chat");
+//     return null;
+//   }
+
+//   const ws =
+//     process.env.NEXT_PUBLIC_ENVIRONMENT === "development"
+//       ? new WebSocket(
+//           productId
+//             ? `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
+//             : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`,
+//         )
+//       : new WebSocket(
+//           productId
+//             ? `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
+//             : `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}`,
+//         );
+
+//   ws.onopen = () => {
+//     console.log("Opened");
+//   };
+
+//   ws.onerror = () => {
+//     console.log("error happened");
+//   };
+
+//   ws.onclose = (event) => {
+//     console.log("CLOSE CODE:", event.code);
+//     console.log("REASON:", event.reason);
+//     console.log("WAS CLEAN:", event.wasClean);
+//   };
+//   return ws;
+// }
+
+export function connectToChat(ws: WebSocket | null, receiverId: number) {
+  if (!ws) {
+    console.log("No websocket found");
     return null;
   }
 
-  // const ws = new WebSocket(
-  //   // productId
-  //   //   ? `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
-  //   //   : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`
-  //   productId
-  //     ? `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
-  //     : `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}`,
-  // );
+  if (ws.readyState !== WebSocket.OPEN) {
+    console.log("WebSocket is not open");
+    return null;
+  }
 
-  const ws =
-    process.env.NEXT_PUBLIC_ENVIRONMENT === "development"
-      ? new WebSocket(
-          productId
-            ? `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
-            : `ws://localhost:8000/ws/chat/${receiverId}/?token=${token}`,
-        )
-      : new WebSocket(
-          productId
-            ? `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}&product=${productId}&owner=${ownerId}`
-            : `wss://jalev1.onrender.com/ws/chat/${receiverId}/?token=${token}`,
-        );
+  console.log("Chat handshake sent");
 
-  ws.onopen = () => {
-    console.log("Opened");
-  };
+  ws.send(
+    JSON.stringify({
+      type: "connect_chat",
+      receiver_id: receiverId,
+    }),
+  );
 
-  ws.onerror = () => {
-    console.log("error happened");
-  };
-
-  ws.onclose = (event) => {
-    console.log("CLOSE CODE:", event.code);
-    console.log("REASON:", event.reason);
-    console.log("WAS CLEAN:", event.wasClean);
-  };
   return ws;
 }
 

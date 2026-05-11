@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 
-import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { useEffect, useState, useRef, useLayoutEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send,
@@ -57,6 +57,7 @@ interface Message {
   text: string;
   sender_id: number | string | undefined;
   created_at: string;
+  timestamp?: string;
   analyzing?: boolean;
   scope?: string;
   product_id?: number;
@@ -66,7 +67,9 @@ interface Message {
 // Memoized message components for performance
 const MessageItem = React.memo(
   ({ msg, isCurrentUser }: { msg: Message; isCurrentUser: boolean }) => (
-    <div className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
+    <div
+      className={`w-full flex ${isCurrentUser ? "justify-end" : "justify-start"}`}
+    >
       <div
         className={`max-w-[80%] rounded-lg px-4 py-3 ${
           isCurrentUser
@@ -98,7 +101,9 @@ MessageItem.displayName = "MessageItem";
 
 const PendingMessageItem = React.memo(
   ({ msg, isCurrentUser }: { msg: Message; isCurrentUser: boolean }) => (
-    <div className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
+    <div
+      className={`w-full flex ${isCurrentUser ? "justify-end" : "justify-start"}`}
+    >
       <div
         className={`max-w-[80%] rounded-lg px-4 py-3 ${
           isCurrentUser
@@ -139,11 +144,10 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   const router = useRouter();
   const pathname = usePathname();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [ws, setWs] = useState<WebSocket | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const { currentProduct, setCurrentProduct, setMessageTrigger, isLoggedIn } =
+  const { currentProduct, setCurrentProduct, setMessageTrigger, ws } =
     useAppContext();
   const [productId, setProductId] = useState<number | string>("");
   const [ownerId, setOwnerId] = useState<number | string>("");
@@ -163,6 +167,13 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   });
   const [isHydrated, setIsHydrated] = useState(false);
   const localStorageSaveTimer = useRef<NodeJS.Timeout | null>(null);
+  const hasLoadedHistory = useRef(false);
+
+  const allMessages = [...messages, ...pendingMessages].sort(
+    (a, b) =>
+      new Date(a.timestamp || "").getTime() -
+      new Date(b.timestamp || "").getTime(),
+  );
 
   useEffect(() => {
     setIsHydrated(true);
@@ -217,8 +228,10 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
           text: msg.content,
           sender_id: msg.sender,
           created_at: formatTime(msg.timestamp || ""),
+          timestamp: msg.timestamp,
         }));
         setMessages(formattedMessage);
+        localStorage.setItem("messages", JSON.stringify(formattedMessage));
       }
 
       const user = await fetchUser();
@@ -228,6 +241,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
       setError("Failed to load chat history, refresh.");
     } finally {
       setIsLoading(false);
+      hasLoadedHistory.current = true;
     }
   };
 
@@ -242,124 +256,97 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
 
   useEffect(() => {
     if (!receiverId || !LoggedIn()) return;
+    if (!ws) {
+      setError("WebSocket not initialized");
+      return;
+    }
 
     fetchHistory();
 
-    let socket: WebSocket | null = null;
-    let retryCount = 0;
-    const MAX_RETRIES = 3;
+    // optional handshake only (NOT required for routing anymore)
+    connectToChat(ws, receiverId);
 
-    const connect = () => {
-      try {
-        socket = currentProduct
-          ? connectToChat(receiverId, currentProduct.id, currentProduct.owner)
-          : connectToChat(receiverId);
+    const handleMessage = (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
 
-        if (!socket) return;
+      console.log("[v0] WS DATA:", data);
 
-        setWs(socket);
+      // Handle all incoming messages
+      if (data.text && data.sender_id !== undefined) {
+        console.log("[v0] Adding message to state:", data.text);
 
-        socket.onmessage = (e) => {
-          const data = JSON.parse(e.data);
-          console.log(data);
+        // Remove pending message if this is a response to one we sent
+        setPendingMessages((prev) =>
+          prev.filter(
+            (msg) =>
+              !(msg.text === data.text && msg.sender_id === data.sender_id),
+          ),
+        );
 
-          if (data.scope == "group") {
-            setPendingMessages((prev) =>
-              prev.filter(
-                (msg) =>
-                  !(msg.text === data.text && msg.sender_id === data.sender_id),
-              ),
-            );
+        // Add message to state
+        setMessages((prev) => {
+          const newMessage: Message = {
+            text: data.text,
+            sender_id: data.sender_id,
+            created_at: data.created_at
+              ? formatTime(data.created_at)
+              : formatTime(new Date().toISOString()),
+            timestamp: data.timestamp || data.created_at,
+            analyzing: data.analyzing,
+            scope: data.scope,
+            product_id: data.product_id,
+            owner_id: data.owner_id,
+          };
+          const updated = [...prev, newMessage];
+          // Save to localStorage immediately when new message arrives
+          localStorage.setItem("messages", JSON.stringify(updated));
+          return updated;
+        });
+      }
 
-            setMessages((prev) => [...prev, data]);
-          }
+      // update product context dynamically
+      if (data.product_id && data.owner_id) {
+        setProductId(data.product_id);
+        setOwnerId(data.owner_id);
 
-          if (data.product_id && data.owner_id) {
-            setProductId(data.product_id);
-            localStorage.setItem("productId", data.product_id.toString());
+        localStorage.setItem("productId", String(data.product_id));
+        localStorage.setItem("ownerId", String(data.owner_id));
+      }
 
-            setOwnerId(data.owner_id);
-            localStorage.setItem("ownerId", data.owner_id.toString());
-          }
+      // order confirmation logic
+      const pattern = /^The transaction has been confirmed at (\d+)$/i;
+      const match = data.text?.trim()?.match(pattern);
 
-          const pattern = /^The transaction has been confirmed at (\d+)$/i;
-          const match = data.text.trim().match(pattern);
+      if (match) {
+        const price = Number.parseInt(match[1], 10);
 
-          if (match) {
-            const price = Number.parseInt(match[1], 10);
-            HandleOrder(price);
-            localStorage.removeItem("ownerId");
-            localStorage.removeItem("productId");
-            setShowOrderSuccess(true);
-          }
-        };
+        HandleOrder(price);
 
-        socket.onopen = () => {
-          console.log("WS OPEN");
-          retryCount = 0;
-          setError(null);
-        };
+        localStorage.removeItem("ownerId");
+        localStorage.removeItem("productId");
 
-        socket.onerror = () => {
-          console.log("WS ERROR");
-        };
-
-        socket.onclose = (event) => {
-          console.log("WebSocket connection closed");
-
-          if (event.code === 1006 || !event.wasClean) {
-            if (retryCount < MAX_RETRIES) {
-              retryCount++;
-              console.log(`Retrying WebSocket... Attempt ${retryCount}`);
-
-              setTimeout(() => {
-                connect();
-              }, 500);
-            } else {
-              console.error("Max retries reached. Stopping.");
-              setError("Failed to connect to chat after multiple attempts.");
-            }
-          }
-        };
-      } catch (err) {
-        console.error("WebSocket connection failed", err);
-        setError("Failed to connect to chat. Please refresh the page.");
+        setShowOrderSuccess(true);
       }
     };
 
-    connect();
+    ws.addEventListener("message", handleMessage);
 
     return () => {
-      if (
-        socket &&
-        (socket.readyState === WebSocket.OPEN ||
-          socket.readyState === WebSocket.CONNECTING)
-      ) {
-        console.log("Closing socket from cleanup...");
-        socket.close();
-      }
+      ws.removeEventListener("message", handleMessage);
     };
-  }, [receiverId, currentProduct]);
+  }, [receiverId, currentProduct, ws]);
 
   // Debounced localStorage save
   useEffect(() => {
-    if (messages.length !== 0) {
-      if (localStorageSaveTimer.current) {
-        clearTimeout(localStorageSaveTimer.current);
-      }
+    if (!hasLoadedHistory.current || messages.length === 0) return;
 
-      localStorageSaveTimer.current = setTimeout(() => {
-        localStorage.setItem("messages", JSON.stringify(messages));
-      }, 500);
-    } else if (messages.length == 0) {
-      const storedMessages = localStorage.getItem("messages");
-      if (storedMessages) {
-        const parsed = JSON.parse(storedMessages);
-        if (Array.isArray(parsed)) {
-          setMessages(parsed);
-        }
-      }
+    if (localStorageSaveTimer.current) {
+      clearTimeout(localStorageSaveTimer.current);
     }
+
+    localStorageSaveTimer.current = setTimeout(() => {
+      localStorage.setItem("messages", JSON.stringify(messages));
+    }, 500);
 
     return () => {
       if (localStorageSaveTimer.current) {
@@ -392,11 +379,9 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     }
   }, [messages, currentUser?.id, receiverId, setMessageTrigger]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "nearest",
+  useLayoutEffect(() => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView();
     });
   }, [messages, pendingMessages]);
 
@@ -485,47 +470,55 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     }
   };
 
-  const [currentTime, setCurrentTime] = useState<string>("");
-  useEffect(() => {
-    setCurrentTime(formatTime(new Date().toISOString()));
-  }, []);
-
   const sendMessage = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    if (ws && input.trim()) {
-      setIsSending(true);
+    if (!ws || !input.trim()) return;
 
-      try {
-        const pendingMsg = {
-          text: input,
-          sender_id: currentUser?.id,
-          created_at: currentTime || formatTime(new Date().toISOString()),
-          analyzing: true,
-        };
+    setIsSending(true);
 
-        setPendingMessages((prev) => [...prev, pendingMsg]);
+    const payload = {
+      type: "chat_message",
+      message: input,
+      receiver_id: receiverId,
+      product_id: currentProduct?.id ?? 0,
+      owner_id: currentProduct?.owner ?? 0,
+    };
 
-        ws.send(JSON.stringify({ message: input }));
-        setLastMessage(input);
-        setInput("");
+    const now = new Date().toISOString();
 
-        setTimeout(
-          () => {
-            setPendingMessages((prev) =>
-              prev.map((msg) =>
-                msg === pendingMsg ? { ...msg, analyzing: false } : msg,
-              ),
-            );
-          },
-          Math.random() * 1000 + 500,
-        );
-      } catch (error) {
-        setError(`Failed to send message. Please try again, ${error}`);
-        setPendingMessages((prev) => prev.filter((msg) => msg.text !== input));
-      } finally {
-        setIsSending(false);
-      }
+    const pendingMsg: Message = {
+      text: input,
+      sender_id: currentUser?.id,
+      timestamp: now,
+      created_at: formatTime(now),
+      analyzing: true,
+    };
+
+    setPendingMessages((prev) => [...prev, pendingMsg]);
+
+    try {
+      ws.send(JSON.stringify(payload));
+
+      setLastMessage(input);
+      setInput("");
+
+      setTimeout(
+        () => {
+          setPendingMessages((prev) =>
+            prev.map((msg) =>
+              msg === pendingMsg ? { ...msg, analyzing: false } : msg,
+            ),
+          );
+        },
+        Math.random() * 800 + 400,
+      );
+    } catch (error) {
+      setError(`Failed to send message. ${error}`);
+
+      setPendingMessages((prev) => prev.filter((msg) => msg.text !== input));
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -535,6 +528,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
       return date.toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
+        hour12: true,
       });
     } catch (e) {
       return "";
@@ -613,132 +607,90 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2"
+              className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md flex items-start justify-between gap-3"
             >
-              <AlertCircle size={20} />
-              <p>{error}</p>
+              <div className="flex gap-2">
+                <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+                <span className="text-sm">{error}</span>
+              </div>
               <button
                 onClick={() => setError(null)}
-                className="ml-auto text-red-700 hover:text-red-900"
+                className="text-red-500 hover:text-red-700"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </motion.div>
           )}
         </>
       </AnimatePresence>
 
-      <div className="flex-1 overflow-y-auto p-4">
-        {isLoading ? (
-          <div className="flex justify-center items-center h-64">
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+        {isLoading && messages.length === 0 && (
+          <div className="flex items-center justify-center h-full">
             <Loader2 size={40} className="text-[#1c2b3a] animate-spin" />
           </div>
-        ) : messages.length === 0 && pendingMessages.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500">
-              No messages yet. Start the conversation!
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((msg, i) => {
-              const isCurrentUser =
-                currentUser && msg.sender_id === currentUser.id;
-
-              return (
-                <MessageItem
-                  key={`msg-${i}`}
-                  msg={msg}
-                  isCurrentUser={!!isCurrentUser}
-                />
-              );
-            })}
-
-            {pendingMessages.map((msg, i) => {
-              const isCurrentUser =
-                currentUser && msg.sender_id === currentUser.id;
-
-              return (
-                <PendingMessageItem
-                  key={`pending-${i}`}
-                  msg={msg}
-                  isCurrentUser={!!isCurrentUser}
-                />
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </div>
         )}
+
+        {allMessages.map((msg) => {
+          const isPending = msg.analyzing;
+
+          return isPending ? (
+            <PendingMessageItem
+              key={`${msg.timestamp}-${msg.sender_id}-${msg.text}`}
+              msg={msg}
+              isCurrentUser={Number(msg.sender_id) === Number(currentUser?.id)}
+            />
+          ) : (
+            <MessageItem
+              key={`${msg.timestamp}-${msg.sender_id}-${msg.text}`}
+              msg={msg}
+              isCurrentUser={Number(msg.sender_id) === Number(currentUser?.id)}
+            />
+          );
+        })}
+
+        <div ref={messagesEndRef} />
       </div>
 
-      {showDiv && productDetails.productName && (
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
-          <div className="flex gap-4 items-center bg-white p-4 rounded-lg shadow-sm">
-            {productDetails.productImage && (
-              <img
-                src={productDetails.productImage}
-                alt={productDetails.productName}
-                className="w-16 h-16 object-cover rounded"
-              />
+      {productId && ownerId && isProductOwner && (
+        <div className="border-t border-gray-200 p-4 bg-white">
+          <div className="mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Confirm Transaction Price
+            </label>
+            <input
+              type="number"
+              value={agreedPrice}
+              onChange={(e) => setAgreedPrice(e.target.value)}
+              placeholder="Enter agreed price"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1c2b3a]"
+            />
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={ApproveOrder}
+            disabled={isSending}
+            className="w-full bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] text-white py-2 rounded-md hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+          >
+            {isSending ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Confirming...
+              </>
+            ) : (
+              <>
+                <Check size={18} />
+                Confirm Order
+              </>
             )}
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900">
-                {productDetails.productName}
-              </h3>
-              <p className="text-sm text-gray-600">
-                ₦{productDetails.productPrice.toLocaleString()}
-              </p>
-            </div>
-            <button
-              onClick={() => setShowDiv(false)}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <X size={20} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {isProductOwner && (
-        <div className="p-4 border-t border-gray-200 bg-gradient-to-r from-[#fcecd8]/20 to-[#1c2b3a]/20">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-[#1c2b3a]">
-              <Brain size={16} />
-              Confirm Deal
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                placeholder="Agreed price..."
-                value={agreedPrice}
-                onChange={(e) => setAgreedPrice(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1c2b3a]"
-              />
-              <button
-                onClick={ApproveOrder}
-                disabled={isSending}
-                className="px-4 py-2 bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-all font-semibold flex items-center gap-2"
-              >
-                {isSending ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Confirming...
-                  </>
-                ) : (
-                  <>
-                    <Check size={16} />
-                    Confirm
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
+          </motion.button>
         </div>
       )}
 
       <form
         onSubmit={sendMessage}
-        className="p-4 border-t border-gray-200 bg-white"
+        className="border-t border-gray-200 p-4 bg-white"
       >
         <div className="flex gap-2">
           <input
@@ -747,15 +699,21 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
             onChange={handleChange}
             placeholder="Type your message..."
             disabled={isSending}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1c2b3a] disabled:bg-gray-100"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1c2b3a]"
           />
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             type="submit"
             disabled={isSending || !input.trim()}
-            className="px-4 py-2 bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-all"
+            className="bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] text-white p-2 rounded-lg hover:opacity-90 disabled:opacity-50 transition-all"
           >
-            <Send size={20} />
-          </button>
+            {isSending ? (
+              <Loader2 size={20} className="animate-spin" />
+            ) : (
+              <Send size={20} />
+            )}
+          </motion.button>
         </div>
       </form>
     </div>

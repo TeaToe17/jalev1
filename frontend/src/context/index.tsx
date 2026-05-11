@@ -82,6 +82,8 @@ type AppContextType = {
   setCartCount: React.Dispatch<React.SetStateAction<number>>;
   changedCart: boolean;
   setChangedCart: React.Dispatch<React.SetStateAction<boolean>>;
+  setWs: React.Dispatch<React.SetStateAction<WebSocket | null>>;
+  ws: WebSocket | null;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -98,6 +100,7 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartCount, setCartCount] = useState<number>(0);
   const [changedCart, setChangedCart] = useState<boolean>(false);
+  const [ws, setWs] = useState<WebSocket | null>(null);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -111,7 +114,7 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadCartItems = async () => {
-    if (!IsUser()) return
+    if (!IsUser()) return;
     const data = await fetchCartItems();
     if (data) {
       setCart(data);
@@ -161,6 +164,8 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
         setCartCount,
         changedCart,
         setChangedCart,
+        setWs,
+        ws,
       }}
     >
       {children}
