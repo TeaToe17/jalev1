@@ -36,19 +36,6 @@ class Product(models.Model):
 
 
     def save(self, *args, **kwargs):
-        
-        # # Reverting sold and reserved status when quantity is updated 
-        # if self.pk:
-        #     if self.stock > 1:
-        #         self.sold = False
-        #         self.reserved = False
-
-        # # Increase owner_price by 20%
-        # increased_price = self.price * Decimal('1.2')
-        
-        # # Round up to the nearest 500
-        # rounded_price = math.ceil(increased_price / 100) * 100
-        # self.standard_price = Decimal(rounded_price)
 
     # Handle email sending
         if self.request:

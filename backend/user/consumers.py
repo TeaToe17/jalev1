@@ -35,7 +35,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(
             self.personal_room_name,
             self.channel_name
-        )
+        )   
 
         await self.accept()
 
