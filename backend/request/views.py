@@ -30,19 +30,3 @@ class RequestListView(generics.ListAPIView):
     def get_queryset(self):
         Request.delete_old_requests()
         return Request.objects.all()
-    
-
-class RequestDeleteView(generics.DestroyAPIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = RequestSerializer
-    lookup_field = "id"
-
-    def get_queryset(self):
-        # Get the current user's books
-        seller_products = Product.objects.filter(owner=self.request.user)
-        
-        # Extract the related Request IDs from these books
-        request_ids = seller_products.values_list('request__id', flat=True)
-        
-        # Return Request objects matching those IDs
-        return Request.objects.filter(id__in=request_ids)
