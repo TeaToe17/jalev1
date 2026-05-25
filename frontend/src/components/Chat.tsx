@@ -248,7 +248,7 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
                 : foundVariant.price;
             setVariantDetails({
               variantImage: foundVariant.image || "",
-              variantName: `${parentName} (${foundVariant.sku})`,
+              variantName: `${parentName})`,
               variantPrice: vPrice || 0,
               variantSku: foundVariant.sku || "",
             });
