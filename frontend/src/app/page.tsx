@@ -591,7 +591,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           >
             ₦{numericPrice ? numericPrice.toLocaleString() : "0"}
           </p>
-          {product.stock > 0 ? (
+          {product.stock > 0 ? (  
             <span
               className={`text-xs px-2 py-1 rounded-full ${product.is_sticky ? "text-green-700 bg-gradient-to-r from-green-100 to-emerald-100 border border-green-200 shadow-sm" : "text-green-600 bg-green-100"}`}
             >
@@ -606,7 +606,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           )}
         </div>
       </div>
-    </motion.div>
+    </motion.div>  
   );
 }
 
@@ -622,7 +622,6 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
 //   ChevronLeft,
 //   Flame,
 //   Zap,
-//   Star,
 //   Crown,
 // } from "lucide-react";
 // import { fetchProducts, fetchCategories } from "@/lib/utils";
