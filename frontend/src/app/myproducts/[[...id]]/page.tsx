@@ -907,12 +907,13 @@ const MyProducts = () => {
                   </button>
                 </div>
               </div>
-              <div className="p-4 text-sm text-gray-600 flex items-center gap-6">
-                <div className="relative h-12 w-12 border rounded bg-gray-50 overflow-hidden">
+              <div className="p-4 text-sm text-gray-600 flex items-center gap-6 flex-wrap">
+                <div className="relative aspect-square w-14 sm:w-16 md:w-20 border rounded bg-gray-50 shrink-0 overflow-hidden">
                   <Image
                     src={product.image || "/placeholder.svg"}
                     alt="Item Face"
-                    fill
+                    width={80}
+                    height={80}
                     unoptimized
                     className="object-cover"
                   />
