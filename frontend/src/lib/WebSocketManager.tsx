@@ -1,30 +1,20 @@
-// WebSocketManager.ts
+import { ACCESS_TOKEN } from "./constant";
 
 class WebSocketManager {
   private ws: WebSocket | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
-
-  // listeners
   private messageListeners = new Set<(data: any) => void>();
 
+  private retryCount = 0;
+  private maxRetries = 3;
+
   connect(userId: number, token: string) {
-    // prevent duplicate active sockets
     if (
       this.ws &&
       (this.ws.readyState === WebSocket.OPEN ||
         this.ws.readyState === WebSocket.CONNECTING)
     ) {
-      console.log("WS already active");
       return this.ws;
-    }
-
-    // cleanup dead socket
-    if (
-      this.ws &&
-      (this.ws.readyState === WebSocket.CLOSED ||
-        this.ws.readyState === WebSocket.CLOSING)
-    ) {
-      this.ws = null;
     }
 
     const url =
@@ -32,45 +22,51 @@ class WebSocketManager {
         ? `ws://localhost:8000/ws/chat/${userId}/?token=${token}`
         : `wss://jalev1.onrender.com/ws/chat/${userId}/?token=${token}`;
 
-    console.log("Creating WS");
-
     this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {
-      console.log("WS connected");
+      this.retryCount = 0;
+      console.log("WS opened");
     };
 
     this.ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
 
-        console.log("WS message", data);
-
-        // trigger ALL listeners on EVERY message
-        this.messageListeners.forEach((listener) => {
-          listener(data);
-        });
+        this.messageListeners.forEach((fn) => fn(data));
       } catch (err) {
         console.error("WS parse error", err);
       }
     };
 
-    this.ws.onerror = (e) => {
-      console.log("WS error", e);
+    this.ws.onerror = (err) => {
+      console.log("WS error", err);
     };
 
-    this.ws.onclose = () => {
-      console.log("WS closed");
+    this.ws.onclose = (event) => {
+      console.log("WS closed", event);
 
       this.ws = null;
 
-      // prevent reconnect stacking
-      if (!this.reconnectTimeout) {
+      // 🔥 IMPORTANT: detect auth failure from server behavior
+      const authFailed =
+        this.retryCount >= this.maxRetries ||
+        event.reason?.toLowerCase?.().includes("token") ||
+        event.reason?.toLowerCase?.().includes("auth");
+
+      // If auth failure → HARD STOP
+      if (authFailed) {
+        console.log("WS auth failed → logging out user");
+
+        this.handleAuthFailure();
+        return;
+      }
+
+      // normal reconnect
+      if (this.retryCount < this.maxRetries) {
+        this.retryCount++;
+
         this.reconnectTimeout = setTimeout(() => {
-          console.log("Reconnecting WS...");
-
-          this.reconnectTimeout = null;
-
           this.connect(userId, token);
         }, 2000);
       }
@@ -79,22 +75,20 @@ class WebSocketManager {
     return this.ws;
   }
 
-  subscribe(listener: (data: any) => void) {
-    this.messageListeners.add(listener);
+  private handleAuthFailure() {
+    this.disconnect();
 
-    return () => {
-      this.messageListeners.delete(listener);
-    };
+    // clear storage
+    localStorage.removeItem(ACCESS_TOKEN);
+
+    // force redirect
+    window.location.href = "/login";
   }
 
-  send(data: any) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
-    }
-  }
+  subscribe(fn: (data: any) => void) {
+    this.messageListeners.add(fn);
 
-  getSocket() {
-    return this.ws;
+    return () => this.messageListeners.delete(fn);
   }
 
   disconnect() {
@@ -103,10 +97,8 @@ class WebSocketManager {
       this.reconnectTimeout = null;
     }
 
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
+    this.ws?.close();
+    this.ws = null;
   }
 }
 

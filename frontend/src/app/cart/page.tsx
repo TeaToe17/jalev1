@@ -70,6 +70,20 @@ const Cart = () => {
     }
   };
 
+  //   const RemoveItem = async (id: number) => {
+//     try {
+//       setIsUpdating(id);
+//       await api.delete(`order/delete/cartitem/${id.toString()}/`);
+//       setChangedCart(true);
+//       showSuccess("Item removed from cart");
+//     } catch (err) {
+//       console.error(err);
+//       showError("Failed to remove item");
+//     } finally {
+//       setIsUpdating(null);
+//     }
+//   };
+
   const updateQuantity = async (id: number, newQuantity: number) => {
     if (newQuantity < 1) return;
     try {
