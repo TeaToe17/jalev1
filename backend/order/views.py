@@ -248,7 +248,17 @@ class OrderListView(generics.ListAPIView):
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        return Order.objects.filter(buyer_name=self.request.user.username).order_by("-date_created")
+        return (
+            Order.objects
+            .select_related(
+                "variant",
+                "variant__product"
+            )
+            .filter(
+                buyer_name=self.request.user.username
+            )
+            .order_by("-date_created")
+        )
 
 
 class OrderDeleteView(generics.DestroyAPIView):
@@ -349,7 +359,15 @@ class ListCartItem(generics.ListAPIView):
     serializer_class = CartItemSerializer
 
     def get_queryset(self):
-        return CartItem.objects.filter(owner=self.request.user).order_by("-timestamp")
+        return (
+            CartItem.objects
+            .select_related(
+                "variant",
+                "variant__product"
+            )
+            .filter(owner=self.request.user)
+            .order_by("-timestamp")
+        )
 
 
 class UpdateCartItem(generics.UpdateAPIView):

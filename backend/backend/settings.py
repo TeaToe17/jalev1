@@ -168,13 +168,6 @@ if ENVIRONMENT == 'production':
         )
     }
 else:
-    # DATABASES = {
-    #     'default': dj_database_url.parse(
-    #         os.getenv("DATABASE_URL"),
-    #         conn_max_age=600,
-    #         ssl_require=True
-    #     )
-    # }
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -306,27 +299,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 ASGI_APPLICATION = 'backend.asgi.application'
 
-# LOGGING = {
-#     'version': 1,
-#     'disable_existing_loggers': False,
-#     'formatters': {
-#         'verbose': {
-#             'format': '{levelname} {asctime} {module} {message}',
-#             'style': '{',
-#         },
-#     },
-#     'handlers': {
-#         'console': {
-#             'class': 'logging.StreamHandler',
-#             'formatter': 'verbose'
-#         },
-#     },
-#     'root': {
-#         'handlers': ['console'],
-#         'level': 'INFO',
-#     },
-# }
-
 import sys
 
 LOGGING = {
@@ -372,7 +344,11 @@ EMAIL_HOST_USER = 'jale.official.contact@gmail.com'
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")  # Use App Password if 2FA is enabled
 
 
-
 WEBPUSH_VAPID_PUBLIC_KEY =os.getenv("JALE_WEBPUSH_VAPID_PUBLIC_KEY")
 WEBPUSH_VAPID_PRIVATE_KEY = os.getenv("JALE_WEBPUSH_VAPID_PRIVATE_KEY")
 WEBPUSH_VAPID_CLAIMS = {"sub": "mailto:jale.official.contact@gmail.com"}
+
+# REST_FRAMEWORK = {
+#     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+#     'PAGE_SIZE': 5
+# }

@@ -3,6 +3,7 @@ import { ACCESS_TOKEN } from "./constant";
 import { jwtDecode } from "jwt-decode";
 import { useAppContext } from "@/context";
 import { useEffect, useRef } from "react";
+import { wsManager } from "@/lib/WebSocketManager";
 
 type Category = {
   id: number;
@@ -19,7 +20,7 @@ export interface Product {
   owner: number;
   is_sticky: boolean;
   sticky_timestamp: string | null;
-  
+
   // Preferred Variant values flattened automatically onto the object payload
   price: number | string;
   image: string;
@@ -119,22 +120,61 @@ export const getUser = async (): Promise<CustomUser | null> => {
 };
 
 // High-performance feed listing array data fetcher helper
-export const fetchProducts = async (ownerId: string | number | null = null): Promise<Product[]> => {
+interface PaginatedProducts {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Product[];
+}
+
+export const fetchProducts = async (
+  page: number = 1,
+  ownerId: string | number | null = null,
+  search = "",
+  category: number | null = null,
+): Promise<PaginatedProducts> => {
   try {
-    const endpoint = ownerId ? `product/list/?id=${ownerId}` : "product/list/";
-    const res = await api.get<Product[]>(endpoint);
-    return res.data || [];
+    const params = new URLSearchParams();
+
+    params.append("page", String(page));
+
+    if (ownerId) {
+      params.append("id", String(ownerId));
+    }
+
+    if (search) {
+      params.append("search", search);
+    }
+
+    if (category) {
+      params.append("category", String(category));
+    }
+
+    const res = await api.get<PaginatedProducts>(
+      `product/list/?${params.toString()}`,
+    );
+
+    return res.data;
   } catch (error: any) {
     if (error?.response?.status === 401) {
       throw new Error("Please Login again.");
     }
+
     console.error("Error fetching products listing:", error);
-    return [];
+
+    return {
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    };
   }
 };
 
 // NEW: Hits specialized detail view to load parent data plus child variant options
-export const fetchProductDetail = async (id: string | number): Promise<ProductDetailData | null> => {
+export const fetchProductDetail = async (
+  id: string | number,
+): Promise<ProductDetailData | null> => {
   try {
     const res = await api.get<ProductDetailData>(`product/detail/${id}/`);
     return res.data || null;
@@ -165,58 +205,109 @@ export const IsUser = () => {
 };
 
 export function useGlobalListener() {
-  const { setGlobalMessages, isLoggedIn, setWs, ws } = useAppContext();
-  const retryCount = useRef(0);
+  const { setGlobalMessages, isLoggedIn, setWs } = useAppContext();
 
   useEffect(() => {
     if (!isLoggedIn) return;
-    let reconnectTimeout: NodeJS.Timeout | null = null;
 
-    const connectWebSocket = () => {
-      if (typeof window === "undefined") return;
-      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-        return;
-      }
-      const token = localStorage.getItem(ACCESS_TOKEN);
-      if (!token) return;
+    const token = localStorage.getItem(ACCESS_TOKEN);
 
-      const decoded: Decoded = jwtDecode(token);
-      const userId = decoded.user_id;
+    if (!token) return;
 
-      const socket = process.env.NEXT_PUBLIC_ENVIRONMENT === "development"
-        ? new WebSocket(`ws://localhost:8000/ws/chat/${userId}/?token=${token}`)
-        : new WebSocket(`wss://jalev1.onrender.com/ws/chat/${userId}/?token=${token}`);
+    const decoded: Decoded = jwtDecode(token);
 
-      setWs(socket);
+    const userId = decoded.user_id;
 
-      socket.onopen = () => {
-        retryCount.current = 0;
-      };
+    // persistent singleton socket
+    const socket = wsManager.connect(userId, token);
 
-      socket.onmessage = (e) => {
-        const data = JSON.parse(e.data);
+    setWs(socket);
+
+    // subscribe to EVERY websocket message
+    const unsubscribe = wsManager.subscribe((data) => {
+      try {
         if (data.scope === "personal") {
-          setGlobalMessages(data);
+          // ALWAYS triggers on each message
+          setGlobalMessages((prev: any) => ({
+            ...prev,
+            ...data,
+          }));
         }
-      };
+      } catch (err) {
+        console.error("WS listener error", err);
+      }
+    });
 
-      socket.onclose = () => {
-        setWs(null);
-        if (retryCount.current < 2) {
-          retryCount.current += 1;
-          reconnectTimeout = setTimeout(() => {
-            connectWebSocket();
-          }, 3000);
-        }
-      };
-    };
-
-    connectWebSocket();
     return () => {
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      // IMPORTANT:
+      // remove ONLY this listener
+      // DO NOT close websocket
+      unsubscribe();
     };
-  }, [isLoggedIn]);
+  }, [isLoggedIn, setGlobalMessages, setWs]);
 }
+// export function useGlobalListener() {
+//   const { setGlobalMessages, isLoggedIn, setWs, ws } = useAppContext();
+//   const retryCount = useRef(0);
+
+//   useEffect(() => {
+//     if (!isLoggedIn) return;
+//     let reconnectTimeout: NodeJS.Timeout | null = null;
+
+//     const connectWebSocket = () => {
+//       if (typeof window === "undefined") return;
+//       if (
+//         ws &&
+//         (ws.readyState === WebSocket.OPEN ||
+//           ws.readyState === WebSocket.CONNECTING)
+//       ) {
+//         return;
+//       }
+//       const token = localStorage.getItem(ACCESS_TOKEN);
+//       if (!token) return;
+
+//       const decoded: Decoded = jwtDecode(token);
+//       const userId = decoded.user_id;
+
+//       const socket =
+//         process.env.NEXT_PUBLIC_ENVIRONMENT === "development"
+//           ? new WebSocket(
+//               `ws://localhost:8000/ws/chat/${userId}/?token=${token}`,
+//             )
+//           : new WebSocket(
+//               `wss://jalev1.onrender.com/ws/chat/${userId}/?token=${token}`,
+//             );
+
+//       setWs(socket);
+
+//       socket.onopen = () => {
+//         retryCount.current = 0;
+//       };
+
+//       socket.onmessage = (e) => {
+//         const data = JSON.parse(e.data);
+//         if (data.scope === "personal") {
+//           setGlobalMessages(data);
+//         }
+//       };
+
+//       socket.onclose = () => {
+//         setWs(null);
+//         if (retryCount.current < 2) {
+//           retryCount.current += 1;
+//           reconnectTimeout = setTimeout(() => {
+//             connectWebSocket();
+//           }, 3000);
+//         }
+//       };
+//     };
+
+//     connectWebSocket();
+//     return () => {
+//       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+//     };
+//   }, [isLoggedIn]);
+// }
 
 export function connectToChat(ws: WebSocket | null, receiverId: number) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return null;
@@ -243,7 +334,6 @@ export const fetchCartItems = async (): Promise<CartItem[]> => {
   const res = await api.get<CartItem[]>("order/list/cartitem/");
   return res.data || [];
 };
-
 
 // import api from "./api";
 // import { ACCESS_TOKEN } from "./constant";
@@ -483,7 +573,6 @@ export const fetchCartItems = async (): Promise<CartItem[]> => {
 //     };
 //   }, [isLoggedIn]);
 // }
-
 
 // export function connectToChat(ws: WebSocket | null, receiverId: number) {
 //   if (!ws) {

@@ -67,7 +67,13 @@ const banners = [
 
 export default function Home() {
   const router = useRouter();
+
   const [products, setProducts] = useState<Product[]>([]);
+  const [page, setPage] = useState(1);
+  const [nextPage, setNextPage] = useState<string | null>(null);
+  const [previousPage, setPreviousPage] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryQuery, setCategoryQuery] = useState<number>(0);
@@ -80,9 +86,20 @@ export default function Home() {
   useEffect(() => {
     const loadProducts = async () => {
       setIsLoading(true);
+      setError(null);
+
       try {
-        const productsData = await fetchProducts();
-        setProducts(productsData);
+        const data = await fetchProducts(
+          page,
+          null,
+          debouncedSearch,
+          categoryQuery || null,
+        );
+
+        setProducts(data.results);
+        setNextPage(data.next);
+        setPreviousPage(data.previous);
+        setTotalCount(data.count);
       } catch (err: unknown) {
         if (err instanceof AxiosError) {
           console.error(err);
@@ -93,6 +110,10 @@ export default function Home() {
       }
     };
 
+    loadProducts();
+  }, [page, debouncedSearch, categoryQuery]);
+
+  useEffect(() => {
     const loadCategories = async () => {
       try {
         const data = await fetchCategories();
@@ -101,8 +122,6 @@ export default function Home() {
         console.log("Error fetching categories:", err);
       }
     };
-
-    loadProducts();
     loadCategories();
   }, []);
 
@@ -116,6 +135,19 @@ export default function Home() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [categoryQuery]);
 
   const handleBannerChange = (index: number) => {
     setCurrentBanner(index);
@@ -134,31 +166,6 @@ export default function Home() {
       router.push("/login");
     }
   };
-
-  // FIXED: Handles category matching over an array of objects
-  const filteredProducts = products?.filter((product) => {
-    const hasSearch = !!searchQuery;
-    const hasCategory = !!categoryQuery;
-
-    const matchesSearch =
-      hasSearch &&
-      product.name.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesCategory =
-      hasCategory &&
-      product.categories?.some((cat) => cat.id === Number(categoryQuery));
-
-    if (hasSearch && hasCategory) {
-      return matchesSearch && matchesCategory;
-    }
-    if (hasSearch) {
-      return matchesSearch;
-    }
-    if (hasCategory) {
-      return matchesCategory;
-    }
-    return true;
-  });
 
   if (error) {
     return (
@@ -230,7 +237,11 @@ export default function Home() {
                   key={category.id}
                   whileHover={{ backgroundColor: "#f3f4f6", x: 5 }}
                   className="cursor-pointer p-3 rounded-md transition-colors"
-                  onClick={() => setCategoryQuery(category.id)}
+                  onClick={() =>
+                    setCategoryQuery((prev) =>
+                      prev === category.id ? 0 : category.id,
+                    )
+                  }
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-xl">{category.icon}</span>
@@ -320,7 +331,11 @@ export default function Home() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     className="flex-shrink-0 flex flex-col items-center justify-center bg-white p-3 rounded-lg shadow-sm"
-                    onClick={() => setCategoryQuery(category.id)}
+                    onClick={() =>
+                      setCategoryQuery((prev) =>
+                        prev === category.id ? 0 : category.id,
+                      )
+                    }
                   >
                     <span className="text-2xl mb-1">{category.icon}</span>
                     <span className="text-xs whitespace-nowrap">
@@ -352,7 +367,6 @@ export default function Home() {
                   View All <ChevronRight size={16} />
                 </motion.button>
               </div>
-
               {isLoading ? (
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
                   {[...Array(8)].map((_, i) => (
@@ -371,8 +385,8 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                  {filteredProducts?.length > 0 ? (
-                    filteredProducts.map((product, index) => (
+                  {products?.length > 0 ? (
+                    products.map((product, index) => (
                       <ProductCard
                         key={product.id}
                         product={product}
@@ -382,7 +396,7 @@ export default function Home() {
                   ) : (
                     <div className="col-span-full text-center py-10">
                       <p className="text-gray-500 text-lg">No products found</p>
-                      {searchQuery && (
+                      {debouncedSearch && (
                         <button
                           onClick={() => setSearchQuery("")}
                           className="mt-2 text-[#1c2b3a] font-medium hover:underline"
@@ -392,6 +406,28 @@ export default function Home() {
                       )}
                     </div>
                   )}
+                </div>
+              )}
+              {/* Pagination Buttons */}
+              {products && (
+                <div className="flex justify-center items-center gap-4 mt-8">
+                  <button
+                    disabled={!previousPage}
+                    onClick={() => setPage((prev) => prev - 1)}
+                    className="px-4 py-2 rounded-md bg-[#1c2b3a] text-white disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+
+                  <span className="font-medium">Page {page}</span>
+
+                  <button
+                    disabled={!nextPage}
+                    onClick={() => setPage((prev) => prev + 1)}
+                    className="px-4 py-2 rounded-md bg-[#1c2b3a] text-white disabled:opacity-50"
+                  >
+                    Next
+                  </button>
                 </div>
               )}
             </motion.div>

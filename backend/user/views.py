@@ -129,10 +129,18 @@ class ListMessagesView(generics.ListAPIView):
     def get(self, request, user_id):
         # Get messages between the authenticated user and user_id
         # filter properly
-        messages = Message.objects.filter(
-            Q(sender_id=request.user.id, receiver_id=user_id) |
-            Q(sender_id=user_id, receiver_id=request.user.id)
-        ).order_by('timestamp')
+        messages = (
+            Message.objects
+            .select_related(
+                "sender",
+                "receiver"
+            )
+            .filter(
+                Q(sender_id=request.user.id, receiver_id=user_id) |
+                Q(sender_id=user_id, receiver_id=request.user.id)
+            )
+            .order_by("timestamp")
+        )
         # print("Messages:",messages)
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data)
@@ -142,9 +150,16 @@ class ListChatPreview(generics.ListAPIView):
     serializer_class = ChatPreviewSerializer
 
     def get_queryset(self):
-        return ChatPreview.objects.filter(
-            Q(sender=self.request.user) | Q(receiver=self.request.user)       
-            ).distinct()
+        return (
+            ChatPreview.objects
+            .select_related(
+                "sender", "receiver", "actual_sender", "actual_receiver"
+            )
+            .filter(
+                Q(sender=self.request.user) | Q(receiver=self.request.user)
+            )
+            .distinct()
+        )
 
 from django.db.models.signals import post_save
 

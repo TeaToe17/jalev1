@@ -75,6 +75,11 @@ const MyProducts = () => {
   const router = useRouter();
   const [user, setUser] = useState<CustomUser | null>();
   const [products, setProducts] = useState<Product[]>([]);
+  const [page, setPage] = useState(1);
+  const [nextPage, setNextPage] = useState<string | null>(null);
+  const [previousPage, setPreviousPage] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
@@ -210,16 +215,21 @@ const MyProducts = () => {
 
   const loadProducts = async () => {
     setIsLoading(true);
+
     try {
-      const owner_id = user?.id;
-      if (owner_id) {
-        const ProductsData = await fetchProducts(owner_id);
-        setProducts(ProductsData);
+      const ownerId = user?.id;
+
+      if (ownerId) {
+        const data = await fetchProducts(page, ownerId);
+        setProducts(data.results);
+        setNextPage(data.next);
+        setPreviousPage(data.previous);
+        setTotalCount(data.count);
       }
-      setError("");
-    } catch (error: unknown) {
-      if (error instanceof AxiosError) {
-        setError(error.message || "Failed to load products");
+    } catch (err: unknown) {
+      if (err instanceof AxiosError) {
+        console.error(err);
+        setError(err.message);
       }
     } finally {
       setIsLoading(false);
@@ -246,7 +256,7 @@ const MyProducts = () => {
 
   useEffect(() => {
     if (user?.id) loadProducts();
-  }, [user]);
+  }, [user, page]);
 
   useEffect(() => {
     loadUser();
@@ -903,6 +913,7 @@ const MyProducts = () => {
                     src={product.image || "/placeholder.svg"}
                     alt="Item Face"
                     fill
+                    unoptimized
                     className="object-cover"
                   />
                 </div>
@@ -939,6 +950,28 @@ const MyProducts = () => {
               </div>
             </div>
           ))}
+          {/* Pagination Buttons */}
+          {products && (
+            <div className="flex justify-center items-center gap-4 mt-8">
+              <button
+                disabled={!previousPage}
+                onClick={() => setPage((prev) => prev - 1)}
+                className="px-4 py-2 rounded-md bg-[#1c2b3a] text-white disabled:opacity-50"
+              >
+                Previous
+              </button>
+
+              <span className="font-medium">Page {page}</span>
+
+              <button
+                disabled={!nextPage}
+                onClick={() => setPage((prev) => prev + 1)}
+                className="px-4 py-2 rounded-md bg-[#1c2b3a] text-white disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
