@@ -133,7 +133,6 @@ const ProductClientComponent = () => {
     setCart((prev) => [
       ...prev,
       {
-        id: variant.id,
         owner: product.owner,
         variant: variant.id,
         quantity: 1,

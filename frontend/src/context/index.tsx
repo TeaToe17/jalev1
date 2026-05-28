@@ -69,7 +69,7 @@ type CustomUser = {
 
 // MATCHES: Backend CartItemSerializer schema reflecting the change to variants
 type CartItem = {
-  id: number;
+  id?: number;
   owner: number;
   variant: number; // Updated: Changed from 'product' to point to ProductVariant ID
   quantity: number;

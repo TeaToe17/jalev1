@@ -19,12 +19,13 @@ class ProductVariantSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductVariant
         fields = ["id", "price", "stock", "attributes", "negotiable", "used", "imagefile",
-         "image", "is_preferred", "created", "sold"]
+         "image", "is_preferred", "created", "sku", "sold"]
         extra_kwargs = {
             "created": {"read_only": True},
             "sold": {"read_only": True},
             "id": {"read_only": False},
             "image": {"read_only": True},
+            "sku": {"read_only": True},
         }
 
 class ProductSerializer(serializers.ModelSerializer):

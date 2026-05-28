@@ -56,7 +56,8 @@ const Cart = () => {
     setTimeout(() => setError(""), 3000);
   };
 
-  const RemoveItem = async (id: number) => {
+  const RemoveItem = async (id: number | undefined) => {
+    if (!id) return;
     try {
       setIsUpdating(id);
       await api.delete(`order/delete/cartitem/${id}/`);
@@ -71,20 +72,24 @@ const Cart = () => {
   };
 
   //   const RemoveItem = async (id: number) => {
-//     try {
-//       setIsUpdating(id);
-//       await api.delete(`order/delete/cartitem/${id.toString()}/`);
-//       setChangedCart(true);
-//       showSuccess("Item removed from cart");
-//     } catch (err) {
-//       console.error(err);
-//       showError("Failed to remove item");
-//     } finally {
-//       setIsUpdating(null);
-//     }
-//   };
+  //     try {
+  //       setIsUpdating(id);
+  //       await api.delete(`order/delete/cartitem/${id.toString()}/`);
+  //       setChangedCart(true);
+  //       showSuccess("Item removed from cart");
+  //     } catch (err) {
+  //       console.error(err);
+  //       showError("Failed to remove item");
+  //     } finally {
+  //       setIsUpdating(null);
+  //     }
+  //   };
 
-  const updateQuantity = async (id: number, newQuantity: number) => {
+  const updateQuantity = async (
+    id: number | undefined,
+    newQuantity: number,
+  ) => {
+    if (!id) return;
     if (newQuantity < 1) return;
     try {
       setIsUpdating(id);
@@ -241,7 +246,7 @@ const Cart = () => {
                       : item.product_price || 0;
                   return (
                     <motion.div
-                      key={item.id}
+                      key={item.id ?? `${item.variant}-${item.product_image}`}
                       variants={itemVariants}
                       whileHover={{ y: -2 }}
                       className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 transition-all"
