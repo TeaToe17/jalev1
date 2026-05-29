@@ -1,4 +1,5 @@
 import { ACCESS_TOKEN } from "./constant";
+import { LoggedIn } from "./utils";
 
 class WebSocketManager {
   private ws: WebSocket | null = null;
@@ -7,6 +8,8 @@ class WebSocketManager {
 
   private retryCount = 0;
   private maxRetries = 3;
+
+
 
   connect(userId: number, token: string) {
     if (
@@ -78,6 +81,8 @@ class WebSocketManager {
   private handleAuthFailure() {
     this.disconnect();
 
+    //Avoiding unneccesary redirect in cases where users were never logged in
+    if (!LoggedIn) return
     // clear storage
     localStorage.removeItem(ACCESS_TOKEN);
 
