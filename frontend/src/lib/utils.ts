@@ -221,6 +221,7 @@ export function useGlobalListener() {
     // persistent singleton socket
     const socket = wsManager.connect(userId, token);
 
+    if (!socket) return;
     setWs(socket);
 
     // subscribe to EVERY websocket message
