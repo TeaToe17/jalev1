@@ -9,8 +9,6 @@ class WebSocketManager {
   private retryCount = 0;
   private maxRetries = 3;
 
-
-
   connect(userId: number, token: string) {
     if (
       this.ws &&
@@ -25,6 +23,9 @@ class WebSocketManager {
         ? `ws://localhost:8000/ws/chat/${userId}/?token=${token}`
         : `wss://jalev1.onrender.com/ws/chat/${userId}/?token=${token}`;
 
+    //Avoiding unneccesary failed connections and redirects in cases where users were never logged in
+    
+    if (!LoggedIn) return;
     this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {
@@ -81,8 +82,6 @@ class WebSocketManager {
   private handleAuthFailure() {
     this.disconnect();
 
-    //Avoiding unneccesary redirect in cases where users were never logged in
-    if (!LoggedIn) return
     // clear storage
     localStorage.removeItem(ACCESS_TOKEN);
 
