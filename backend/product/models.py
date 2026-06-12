@@ -124,14 +124,6 @@ class ProductVariant(models.Model):
 
     def clean(self):
         super().clean()
-        generated_sku = self.generate_dynamic_sku()
-        duplicate_exists = ProductVariant.objects.filter(
-            product__owner=self.product.owner,
-            sku=generated_sku
-        ).exclude(pk=self.pk).exists()
-
-        if duplicate_exists:
-            raise ValidationError(f"A variant matching SKU '{generated_sku}' already exists within this vendor account.")
 
     def save(self, *args, **kwargs):
         self.sku = self.generate_dynamic_sku()
