@@ -35,6 +35,7 @@ export interface ProductVariant {
   sku: string;
   price: string | number;
   stock: number;
+  sizes: string[];
   attributes: Record<string, string | number | null>;
   negotiable: boolean;
   used: boolean;
@@ -89,6 +90,7 @@ export type CartItem = {
   owner: number;
   variant: number; // Updated: Tracks ProductVariant ID
   quantity: number;
+  size: string;
   product_image: string;
   product_stock: number;
   product_name: string;

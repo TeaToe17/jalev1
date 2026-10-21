@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import save_subscription, delete_webpush_token_view, ListMessagesView, CreateUserView, ListChatPreview, UserProfileView, PasswordResetView, PasswordResetConfirmView, UpdatedMessagesView, ListUserView, MessageRemindView, GetSubAndCheckMsg,cron_view
+from .views import save_subscription, delete_webpush_token_view, ListMessagesView, CreateUserView, ListChatPreview, UserProfileView, PasswordResetView, PasswordResetConfirmView, UpdatedMessagesView, ListUserView, MessageRemindView, GetSubAndCheckMsg, cron_view
 
 urlpatterns = [
     path("create_user/", CreateUserView.as_view(), name="create-user"),

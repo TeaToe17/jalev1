@@ -1,5 +1,5 @@
 # serializers.py
-import random
+import random, json
 from django.db import transaction
 from django.forms.models import model_to_dict
 from rest_framework import serializers
@@ -19,7 +19,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductVariant
         fields = ["id", "price", "stock", "attributes", "negotiable", "used", "imagefile",
-         "image", "is_preferred", "created", "sku", "sold"]
+         "image", "is_preferred", "created", "sku", "sold", "sizes"]
         extra_kwargs = {
             "created": {"read_only": True},
             "sold": {"read_only": True},
@@ -55,6 +55,8 @@ class ProductSerializer(serializers.ModelSerializer):
                 if image_file:
                     result = upload(image_file, quality="85")
                     variant_data["image"] = result.get("secure_url")
+                if "sizes" in variant_data and isinstance(variant_data["sizes"], str):
+                    variant_data["sizes"] = json.loads(variant_data["sizes"])
                 variant = ProductVariant.objects.create(product=product, **variant_data)
                 created_variants.append(variant)
             preferred_variant = None
@@ -93,6 +95,8 @@ class ProductSerializer(serializers.ModelSerializer):
                     variant_id = variant_data.pop("id", None)
                     image_file = variant_data.pop("imagefile", None)
                     variant_data.pop("image", None)
+                    if "sizes" in variant_data and isinstance(variant_data["sizes"], str):
+                        variant_data["sizes"] = json.loads(variant_data["sizes"])
                     # UPDATE EXISTING
                     if variant_id and variant_id in existing_variants:
                         variant = existing_variants[variant_id]

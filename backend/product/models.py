@@ -4,6 +4,7 @@ import re
 from django.db import models
 from django.utils.timezone import now
 from django.core.exceptions import ValidationError
+from django.contrib.postgres.fields import ArrayField
 from dotenv import load_dotenv
 
 from .tasks import browser_notify
@@ -104,6 +105,7 @@ class ProductVariant(models.Model):
     created = models.DateTimeField(auto_now_add=True, null=True)
     datesold = models.DateTimeField(blank=True, null=True)
     is_preferred = models.BooleanField(default=False)
+    sizes = ArrayField(models.CharField(max_length=50), default=list, blank=True)
 
     def generate_dynamic_sku(self) -> str:
         if not self.product or not self.product.name:
