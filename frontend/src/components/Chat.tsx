@@ -308,7 +308,6 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     connectToChat(ws, receiverId);
 
     const handleMessage = (e: MessageEvent) => {
-      console.log("Raw data", e.data);
       const data = JSON.parse(e.data);
       if (data.text && data.sender_id !== undefined) {
         setPendingMessages((prev) =>
@@ -502,7 +501,6 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     setPendingMessages((prev) => [...prev, pendingMsg]);
 
     try {
-      
       ws.send(JSON.stringify(payload));
       setLastMessage(input);
       setInput("");
