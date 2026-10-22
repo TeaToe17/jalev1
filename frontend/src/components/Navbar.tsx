@@ -62,20 +62,18 @@ const Navbar = () => {
   useGlobalListener();
   usePushNotifications();
 
-  // Making sure cart load regardless of route
   useEffect(() => {
-    setChangedCart(true);
-  }, []);
+    if (!isLoggedIn) return;
 
-  useEffect(() => {
     const loadUser = async () => {
       const data = await fetchUser();
       if (data) {
         setCurrentUser(data);
       }
     };
+
     loadUser();
-  }, []);
+  }, [isLoggedIn, setCurrentUser]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -106,28 +104,24 @@ const Navbar = () => {
   // Fetch chat previews when messageTrigger is true
   useEffect(() => {
     if (!isLoggedIn) return;
-    // if (!messageTrigger || !isLoggedIn) return;
 
     const token = localStorage.getItem(ACCESS_TOKEN);
-    if (token) {
-      const fetchPreview = async () => {
-        try {
-          console.log("fetched chat previews for navbar");
-          const res = await api.get("user/chatpreview/list/");
-          const data: ChatPreview[] = res.data;
-          console.log("preview Fetched");
-          setChats(data);
-          // Reset the trigger after successful fetch
-          setMessageTrigger(false);
-        } catch (error: any) {
-          console.error("Error fetching chat previews:", error);
-          // Reset trigger even on error to prevent infinite loops
-          setMessageTrigger(false);
-        }
-      };
-      fetchPreview();
-    }
-  }, [messageTrigger, isLoggedIn, setChats, setMessageTrigger]);
+    if (!token) return;
+
+    const fetchPreview = async () => {
+      try {
+        const res = await api.get("user/chatpreview/list/");
+        const data: ChatPreview[] = res.data;
+
+        setChats(data);
+        setMessageTrigger(false);
+      } catch (error) {
+        console.error("Error fetching chat previews:", error);
+      }
+    };
+
+    fetchPreview();
+  }, [isLoggedIn, setChats, setMessageTrigger]);
 
   // Update message count when chats change
   useEffect(() => {
@@ -146,7 +140,10 @@ const Navbar = () => {
     console.log(count);
     setMessageCount(count);
   }, [chats, currentUser, setMessageCount, globalMessages]);
-  // }, [chats, currentUser, setMessageCount, globalMessages]);
+
+  useEffect(() => {
+    setChangedCart(true);
+  }, [setChangedCart]);
 
   const navItems = isLoggedIn ? (
     <>

@@ -140,7 +140,6 @@ const Form = ({ route, method }: FormProps) => {
         localStorage.setItem(REFRESH_TOKEN, refresh);
         setIsLoggedIn(true);
         setSuccess("Login successful! Redirecting...");
-        
 
         setTimeout(() => {
           router.push(url ? `${url}` : "/");
@@ -185,7 +184,7 @@ const Form = ({ route, method }: FormProps) => {
           (data && data.username && data.username[0].includes("already exists"))
         ) {
           setError(
-            "This username is already taken. Please choose another one."
+            "This username is already taken. Please choose another one.",
           );
         } else {
           setError("An error occurred. Please try again later.");

@@ -123,7 +123,6 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   const [changedCart, setChangedCart] = useState<boolean>(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
 
-
   useEffect(() => {
     if (!isLoggedIn) {
       if (typeof window !== "undefined") {
@@ -145,10 +144,18 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    if (changedCart === true) {
-      loadCartItems();
-    }
-  }, [changedCart]);
+    if (!isLoggedIn || !IsUser() || !changedCart) return;
+
+    const loadCart = async () => {
+      try {
+        await loadCartItems();
+      } catch (error) {
+        console.error("Failed to load cart items:", error);
+      }
+    };
+
+    loadCart();
+  }, [changedCart, isLoggedIn]);
 
   useEffect(() => {
     setCartCount(cart?.length || 0);
