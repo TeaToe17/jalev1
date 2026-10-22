@@ -224,10 +224,12 @@ export function useGlobalListener() {
     const socket = wsManager.connect(userId, token);
 
     if (!socket) return;
+    console.log("Socket", socket);
     setWs(socket);
 
     // subscribe to EVERY websocket message
     const unsubscribe = wsManager.subscribe((data) => {
+      console.log(data)
       try {
         if (data.scope === "personal") {
           // ALWAYS triggers on each message

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CustomUser, Message, ChatPreview, PushSubscription
+from .models import CustomUser, Message, ChatPreview, PushSubscription, FlaggedMessage
 
 @admin.register(CustomUser)
 class CustomUserAdmin(admin.ModelAdmin):
@@ -20,3 +20,8 @@ class ChatPreviewAdmin(admin.ModelAdmin):
 class PushSubscriptionAdmin(admin.ModelAdmin):
     model = PushSubscription
     list_display = ("user","endpoint", "p256dh", "auth", "creation_date")
+
+@admin.register(FlaggedMessage)
+class FlaggedMessageAdmin(admin.ModelAdmin):
+    model = FlaggedMessage
+    list_display = ("text","created_at",)

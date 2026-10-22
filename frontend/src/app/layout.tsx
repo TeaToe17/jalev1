@@ -46,6 +46,10 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Jale",
   },
+  icons: {
+    icon: "/jale logo.png",
+    apple: "/jale logo.png",
+  },
 };
 
 const inter = Inter({ subsets: ["latin"] });

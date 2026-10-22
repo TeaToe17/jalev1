@@ -6,7 +6,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.utils.timezone import localtime, now
 from datetime import datetime
 
-from .models import Message
+from .models import Message, FlaggedMessage
 from model.test import approve
 
 
@@ -54,6 +54,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         except Exception as e:
             print(f"[v0] Error in disconnect: {e}")
+
+    @database_sync_to_async
+    def save_flagged_message(self, content):
+        FlaggedMessage.objects.create(text=content)
 
     @database_sync_to_async
     def save_message(self, sender_id, receiver_id, content):
@@ -133,8 +137,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
             print(f"[v0] Error parsing message: {e}")
             return
 
+
         if not approve(content):
+            asyncio.create_task(
+                self._async_save_flagged_message(content)
+            )
             content = self.warning
+
+        base_data = {
+            "text": content,
+            "sender_id": self.sender.id,
+            "receiver_id": receiver_id,
+            "created_at": datetime.now().isoformat(),
+        }
+
 
         # Dynamic room
         room_group_name = (
@@ -143,12 +159,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             f"{max(int(self.sender.id), int(receiver_id))}"
         )
 
-        base_data = {
-            "text": content,
-            "sender_id": self.sender.id,
-            "receiver_id": receiver_id,
-            "created_at": datetime.now().isoformat(),
-        }
 
         if product_id and owner_id:
 
@@ -187,8 +197,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
     ):
 
         try:
-
-            personal_room_name = f"chat_{receiver_id}"
+            id = receiver_id
+            if base_data["text"] == self.warning:
+                id = self.sender.id
+            personal_room_name = f"chat_{id}"
 
             await self.channel_layer.group_send(
                 personal_room_name,
@@ -197,6 +209,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     **base_data
                 }
             )
+            print("sent", base_data["text"])
 
         except Exception as e:
 
@@ -226,3 +239,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             print(
                 f"[v0] Error in async save/preview: {e}"
             )
+
+    async def _async_save_flagged_message(self, content):
+        try:
+            await self.save_flagged_message(content)
+        except Exception as e:
+            print(f"Error saving flagged message: {e}")
