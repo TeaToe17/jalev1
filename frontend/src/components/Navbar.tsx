@@ -1,4 +1,3 @@
-
 "use client";
 
 import type React from "react";
@@ -23,6 +22,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { ACCESS_TOKEN } from "@/lib/constant";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import NotificationOnboarding from "./NotificationOnboarding";
 
 type ChatPreview = {
   sender: number;
@@ -71,13 +71,39 @@ const Navbar = () => {
     }
   };
 
+  const [deviceInfo, setDeviceInfo] = useState({
+    isIOS: false,
+    isStandalone: false,
+    ready: false,
+  });
+
   // Only show the enable button when notifications can actually be enabled.
   const canEnableNotifications =
+    deviceInfo.ready &&
     isLoggedIn &&
     pushNotifications.isSupported &&
     !pushNotifications.isSubscribed &&
-    typeof Notification !== "undefined" &&  
+    (!deviceInfo.isIOS || deviceInfo.isStandalone) &&
+    typeof Notification !== "undefined" &&
     Notification.permission !== "denied";
+
+  useEffect(() => {
+    const ua = navigator.userAgent;
+
+    const isIOS =
+      /iPhone|iPad|iPod/i.test(ua) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+    setDeviceInfo({
+      isIOS,
+      isStandalone,
+      ready: true,
+    });
+  }, []);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -174,11 +200,7 @@ const Navbar = () => {
 
   const navItems = isLoggedIn ? (
     <>
-      <NavItem
-        href="/"
-        icon={<Home className="w-5 h-5" />}
-        label="Home"
-      />
+      <NavItem href="/" icon={<Home className="w-5 h-5" />} label="Home" />
 
       <NavItem
         href="/requests"
@@ -297,11 +319,7 @@ const Navbar = () => {
     </>
   ) : (
     <>
-      <NavItem
-        href="/"
-        icon={<Home className="w-5 h-5" />}
-        label="Home"
-      />
+      <NavItem href="/" icon={<Home className="w-5 h-5" />} label="Home" />
 
       <NavItem
         href="/login"
@@ -319,6 +337,13 @@ const Navbar = () => {
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] text-white px-4 py-3 shadow-md">
+      <NotificationOnboarding
+        enabled={isLoggedIn}
+        isSupported={pushNotifications.isSupported}
+        isSubscribed={pushNotifications.isSubscribed}
+        isLoading={pushNotifications.isLoading}
+        subscribe={pushNotifications.subscribe}
+      />
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         {/* Logo */}
         <Link href="/" className="z-10 ml-5">
@@ -361,9 +386,7 @@ const Navbar = () => {
                 <span className="relative">
                   <Menu className="w-6 h-6" />
 
-                  {(messageCount > 0 ||
-                    cartCount > 0 ||
-                    clearanceRequired) && (
+                  {(messageCount > 0 || cartCount > 0 || clearanceRequired) && (
                     <span className="absolute -top-1 -right-1 flex items-center gap-1">
                       {messageCount + cartCount > 0 && (
                         <span className="bg-red-600 text-white text-[10px] font-bold px-1 rounded-full">
