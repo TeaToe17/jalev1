@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
 
-const CallbackPage = () => {
+const CallbackContent = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -161,6 +161,14 @@ const CallbackPage = () => {
         )}
       </div>
     </main>
+  );
+};
+
+const CallbackPage = () => {
+  return (
+    <Suspense fallback={<div>Verifying payment...</div>}>
+      <CallbackContent />
+    </Suspense>
   );
 };
 
