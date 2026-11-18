@@ -22,30 +22,17 @@ import {
   AlertCircle,
   Star,
   Gift,
+  ArrowUpRight,
 } from "lucide-react";
 import api from "@/lib/api";
 import ProductComponent from "@/components/Product";
 import { fetchProducts, fetchCategories, getUser, IsUser } from "@/lib/utils";
+import { Product } from "@/types";
 
 interface Category {
   id: number;
   name: string;
   icon?: string;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  categories: Category[];
-  created: string;
-  owner: number;
-  is_sticky: boolean;
-  sticky_timestamp: string | null;
-  price: string | number;
-  image: string;
-  sku: string;
-  stock: number;
-  attributes: Record<string, string | number | null>;
 }
 
 interface FrontEndVariantInput {
@@ -81,7 +68,7 @@ const MyProducts = () => {
   const [nextPage, setNextPage] = useState<string | null>(null);
   const [previousPage, setPreviousPage] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
-
+  const [showReferralPromo, setShowReferralPromo] = useState(true);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
@@ -94,6 +81,7 @@ const MyProducts = () => {
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
 
+  const [showSellingModels, setShowSellingModels] = useState(true);
   const [variants, setVariants] = useState<FrontEndVariantInput[]>([
     {
       price: "",
@@ -553,6 +541,235 @@ const MyProducts = () => {
             </button>
           )}
         </div>
+
+        {/* REFERRAL PROMOTION BANNER */}
+        <AnimatePresence>
+          {showReferralPromo && (
+            <motion.div
+              initial={{ opacity: 0, y: -15, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -15, height: 0 }}
+              className="mb-6 overflow-hidden"
+            >
+              <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-[#1c2b3a] via-[#263f53] to-[#b96c32] shadow-lg">
+                {/* Decorative background elements */}
+                <div className="absolute -right-10 -top-16 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
+                <div className="absolute right-24 -bottom-16 w-40 h-40 rounded-full bg-orange-300/20 blur-2xl" />
+
+                <div className="relative p-5 sm:p-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-white/15 border border-white/20 p-2 rounded-xl">
+                        <Gift className="text-orange-200" size={21} />
+                      </span>
+
+                      <span className="text-orange-100 text-[10px] sm:text-xs font-bold uppercase tracking-[0.18em]">
+                        Jàle Seller Rewards
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowReferralPromo(false)}
+                      aria-label="Dismiss referral promotion"
+                      className="text-white/70 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="mt-4 max-w-2xl">
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-white leading-tight">
+                      More Referrals. More Visibility. More Sales.
+                    </h2>
+
+                    <p className="text-sm text-white/85 mt-2 leading-relaxed max-w-xl">
+                      Invite friends to join Jàle and earn referral points. Use
+                      points to feature your products at the top of listings for{" "}
+                      <strong className="text-orange-200">2 hours</strong>,
+                      giving them extra visibility while buyers browse.
+                    </p>
+
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => router.push("/profile")}
+                      className="mt-5 inline-flex items-center gap-2 bg-white text-[#1c2b3a] font-bold text-sm px-5 py-3 rounded-xl shadow-md hover:bg-orange-50 transition-colors"
+                    >
+                      Get Your Referral Link
+                      <ArrowUpRight size={17} />
+                    </motion.button>
+
+                    <p className="text-[10px] text-white/60 mt-3">
+                      Turn your network into better product visibility.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* SELLING MODELS INFORMATION */}
+        <AnimatePresence>
+          {showSellingModels && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -8 }}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -8 }}
+              className="mb-6 overflow-hidden"
+            >
+              <div className="rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
+                {/* Header */}
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">
+                      How selling works on JAle
+                    </h3>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      Understand the transaction arrangements for different
+                      products.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowSellingModels(false)}
+                    aria-label="Close selling models information"
+                    className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition"
+                  >
+                    <X size={17} />
+                  </button>
+                </div>
+
+                {/* Swipe hint: mobile and smaller screens only */}
+                <div className="flex sm:hidden items-center justify-end gap-1 text-[10px] text-gray-500 mb-2">
+                  <span>Swipe left to explore</span>
+                  <span className="text-base leading-none">→</span>
+                </div>
+
+                {/* Scrollable selling models */}
+                <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-2 sm:overflow-visible">
+                  {/* REGULAR PRODUCTS */}
+                  <div className="snap-start shrink-0 w-[88%] sm:w-auto rounded-lg border border-green-200 bg-green-50/70 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle
+                        size={17}
+                        className="text-green-600 shrink-0"
+                      />
+                      <h4 className="text-xs font-semibold text-green-900">
+                        Regular Products
+                      </h4>
+                    </div>
+
+                    <p className="text-xs font-semibold text-green-900 mb-2">
+                      Platform-managed transactions
+                    </p>
+
+                    <p className="text-[11px] text-green-800 leading-relaxed">
+                      For regular products, JAle facilitates the transaction
+                      process, making buying and selling more structured. Orders
+                      are placed through the platform, and payment is made by
+                      buyers upon delivery and inspection.
+                    </p>
+
+                    <div className="mt-3">
+                      <h5 className="text-[11px] font-semibold text-green-900 mb-1">
+                        How You Receive Payment
+                      </h5>
+                      <p className="text-[11px] text-green-800 leading-relaxed">
+                        Once an order is placed, you are expected to release the
+                        product for delivery without receiving payment upfront.
+                        After successful delivery and buyer inspection, your
+                        payment is processed.
+                      </p>
+                    </div>
+
+                    <div className="border-t border-green-200 mt-3 pt-2">
+                      <p className="text-[11px] text-green-800 leading-relaxed">
+                        This arrangement requires trust in JAle's order and
+                        delivery process. Our applicable platform fee is charged
+                        on successful transactions. There is no monthly traffic
+                        or visibility fee for regular listings.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* HIGH-VALUE PRODUCTS */}
+                  <div className="snap-start shrink-0 w-[88%] sm:w-auto rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertCircle
+                        size={17}
+                        className="text-amber-600 shrink-0"
+                      />
+                      <h4 className="text-xs font-semibold text-amber-900">
+                        High-Value Products
+                      </h4>
+                    </div>
+
+                    <p className="text-xs font-semibold text-amber-900 mb-2">
+                      Understanding High-Value Listings
+                    </p>
+
+                    <div className="inline-flex items-center rounded-md bg-amber-100 px-2 py-1 mb-2">
+                      <span className="text-[10px] font-semibold text-amber-900">
+                        Threshold: ₦100,000 and above
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      High-value products operate under a different transaction
+                      arrangement on JAle.
+                    </p>
+
+                    <p className="text-[11px] text-amber-800 leading-relaxed mt-2">
+                      JAle provides a platform for you to showcase your
+                      products, reach potential customers and connect directly
+                      with interested buyers. Negotiations and subsequent
+                      transactions are handled independently between you and
+                      your customers.
+                    </p>
+
+                    <div className="mt-3">
+                      <h5 className="text-[11px] font-semibold text-amber-900 mb-1">
+                        How does the fee work?
+                      </h5>
+                      <p className="text-[11px] text-amber-800 leading-relaxed">
+                        A minimal postpaid monthly fee applies, calculated based
+                        on the traffic your high-value listings receive and
+                        their listed prices. You only pay after the month has
+                        ended.
+                      </p>
+                    </div>
+
+                    <p className="text-[11px] text-amber-800 leading-relaxed mt-2">
+                      Since JAle facilitates the connection rather than managing
+                      the transaction, we do not charge commissions on
+                      successful sales. You retain control of your negotiations,
+                      payment and delivery arrangements, and can build lasting
+                      customer relationships without additional JAle commissions
+                      on subsequent direct transactions.
+                    </p>
+
+                    <div className="border-t border-amber-200 mt-3 pt-2">
+                      <h5 className="text-[11px] font-semibold text-amber-900 mb-1">
+                        Important
+                      </h5>
+                      <p className="text-[11px] text-amber-800 leading-relaxed">
+                        JAle does not manage or guarantee transactions completed
+                        outside the platform. You and your customers are
+                        responsible for agreeing on suitable payment and
+                        delivery arrangements and exercising due diligence.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <AnimatePresence>
           {success && (
             <div className="mb-4 bg-green-50 text-green-700 p-4 border border-green-200 rounded-lg flex items-center gap-2">

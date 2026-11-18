@@ -2,6 +2,7 @@
 import os
 import re
 from django.db import models
+from django.conf import settings
 from django.utils.timezone import now
 from django.core.exceptions import ValidationError
 from django.contrib.postgres.fields import ArrayField
@@ -18,7 +19,6 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
-
 class Product(models.Model):
     name = models.CharField(max_length=50, null=True)
     categories = models.ManyToManyField("product.Category", related_name="category_products")
@@ -26,22 +26,12 @@ class Product(models.Model):
     owner = models.ForeignKey("user.CustomUser", on_delete=models.CASCADE, related_name="products", null=True)
     is_sticky = models.BooleanField(default=False)
     sticky_timestamp = models.DateTimeField(null=True, blank=True)
-    request = models.ForeignKey(
-        "request.Request", 
-        on_delete=models.SET_NULL, 
-        related_name="requested_product", 
-        null=True, 
-        blank=True
-    )
-    
-    # Track which variant acts as the representative profile on the feed listing page
-    preferred_variant = models.ForeignKey(
-        "product.ProductVariant", 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
-        related_name="preferred_for_products"
-    )
+    delist = models.BooleanField(default=False)
+    request = models.ForeignKey("request.Request", on_delete=models.SET_NULL, related_name="requested_product", null=True, blank=True)
+    preferred_variant = models.ForeignKey("product.ProductVariant", on_delete=models.SET_NULL, null=True, blank=True, related_name="preferred_for_products")
+    chargeable_clicks = models.IntegerField(default=0)
+    cleared = models.BooleanField(default=True)
+    lastclearance = models.DateTimeField(default=now, null=True, blank=True)
 
     def format_whatsapp_link(self, number: str) -> str:
         if not number:
@@ -70,25 +60,10 @@ class Product(models.Model):
             self.preferred_variant = next_available
             self.save(update_fields=['preferred_variant'])
 
-    # def save(self, *args, **kwargs):
-        #  This is supposed to notify the admin
-        # if self.request and self.product:
-        #     try:
-        #         owner = self.product.owner
-        #         buyer = self.request.owner
-        #         subject = f"New Variant Created for Request: {self.product.name} ({self.sku})"
-        #         message = f"Product: {self.product.name} ({self.sku}), Price: {self.price}"
-        #         url = os.getenv("JALE_BACKEND_URL")
-        #         browser_notify(2, subject, message, url)
-        #     except Exception as e:
-        #         print(f"Notification failed: {str(e)}")
-        # super().save(*args, **kwargs)
-
     def __str__(self):
         username = self.owner.username if self.owner else "No Owner"
         created_str = self.created.strftime('%Y-%m-%d') if self.created else "Unsaved"
         return f"{self.name} | Owner: {username} | Created: {created_str}"
-
 
 class ProductVariant(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="variants")
@@ -145,3 +120,57 @@ class ProductVariant(models.Model):
     def __str__(self):
         status = "Sold" if self.sold else "Available"
         return f"{self.product.name} ({self.sku}) | ₦{self.price} | Status: {status}"
+
+class ClearancePayment(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("success", "Successful"),
+        ("failed", "Failed"),
+    ]
+
+    seller = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="clearance_payments",
+    )
+
+    reference = models.CharField(max_length=100, unique=True)
+
+    amount = models.PositiveBigIntegerField(
+        help_text="Payment amount in kobo"
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending",
+    )
+
+    created = models.DateTimeField(auto_now_add=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.seller} - {self.reference}"
+
+
+class ClearancePaymentItem(models.Model):
+    payment = models.ForeignKey(
+        ClearancePayment,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        related_name="clearance_payment_items",
+    )
+
+    clicks_snapshot = models.PositiveIntegerField(default=0)
+
+    amount = models.PositiveBigIntegerField(
+        help_text="Product clearance amount in naira"
+    )
+
+    def __str__(self):
+        return f"{self.product.name} - {self.payment.reference}"

@@ -19,6 +19,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
         self.sender = self.scope["user"]
+        self.chat_room_names = set()
 
         if not self.channel_layer:
             print("[v0] Channel layer is None!")
@@ -40,27 +41,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, close_code):
-
         try:
-
             if self.channel_layer:
-
                 if hasattr(self, "personal_room_name"):
-
                     await self.channel_layer.group_discard(
                         self.personal_room_name,
                         self.channel_name
                     )
 
+                for room_name in getattr(self, "chat_room_names", set()):
+                    await self.channel_layer.group_discard(
+                        room_name,
+                        self.channel_name
+                    )
+
         except Exception as e:
-            print(f"[v0] Error in disconnect: {e}")
+            print(f"[WS] Error in disconnect: {e}")
 
     @database_sync_to_async
     def save_flagged_message(self, content):
         FlaggedMessage.objects.create(text=content)
 
     @database_sync_to_async
-    def save_message(self, sender_id, receiver_id, content):
+    def save_message(self, sender_id, receiver_id, content, variant_id=None, owner_id=None):
 
         if (
             content != self.warning
@@ -71,7 +74,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 sender_id=sender_id,
                 receiver_id=receiver_id,
                 content=content,
-                read=False
+                read=False,
+                variant_id=variant_id,
+                owner_id=owner_id
             )
 
     async def chat_message_personal(self, event):
@@ -82,15 +87,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "sender_id": event["sender_id"],
             "receiver_id": event["receiver_id"],
             "created_at": event["created_at"],
+            "variant_id": event.get("variant_id"),
+            "owner_id": event.get("owner_id"),
         }
-
-        if (
-            "product_id" in event
-            and "owner_id" in event
-        ):
-
-            message_data["product_id"] = event["product_id"]
-            message_data["owner_id"] = event["owner_id"]
 
         await self.send(
             text_data=json.dumps(message_data)
@@ -98,45 +97,61 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message_group(self, event):
 
+        print("EVent", event)
         message_data = {
             "scope": "group",
             "text": event["text"],
             "sender_id": event["sender_id"],
             "receiver_id": event["receiver_id"],
             "created_at": event["created_at"],
+            "variant_id": event.get("variant_id"),
+            "owner_id": event.get("owner_id"),
         }
-
-        if (
-            "product_id" in event
-            and "owner_id" in event
-        ):
-
-            message_data["product_id"] = event["product_id"]
-            message_data["owner_id"] = event["owner_id"]
-
         await self.send(
             text_data=json.dumps(message_data)
         )
 
     async def receive(self, text_data):
-
         try:
-
             data = json.loads(text_data)
-            print(data)
+            print("[WS RECEIVE]", data)
+
+            # Handle chat room connection separately
+            if data.get("type") == "connect_chat":
+                receiver_id = data.get("receiver_id")
+
+                if not receiver_id:
+                    print("[WS ERROR] Missing receiver_id for connect_chat")
+                    return
+
+                room_group_name = (
+                    f"chat_"
+                    f"{min(int(self.sender.id), int(receiver_id))}_"
+                    f"{max(int(self.sender.id), int(receiver_id))}"
+                )
+
+                await self.channel_layer.group_add(
+                    room_group_name,
+                    self.channel_name
+                )
+
+                self.chat_room_names.add(room_group_name)
+
+                print(
+                    f"[WS JOINED CHAT ROOM] User {self.sender.id}: "
+                    f"{room_group_name}"
+                )
+                return
+
+            # Process actual chat messages
             content = data["message"]
             receiver_id = data["receiver_id"]
-            product_id = data.get("product_id")
-            owner_id = data.get("owner_id")
+            variant_id = data.get("variant_id") or None
+            owner_id = data.get("owner_id") or None
 
-        except (
-            json.JSONDecodeError,
-            KeyError
-        ) as e:
-
-            print(f"[v0] Error parsing message: {e}")
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            print(f"[WS ERROR] Error parsing message: {e}")
             return
-
 
         if not approve(content):
             asyncio.create_task(
@@ -149,23 +164,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "sender_id": self.sender.id,
             "receiver_id": receiver_id,
             "created_at": datetime.now().isoformat(),
+            "variant_id": variant_id,
+            "owner_id": owner_id,
         }
 
-
-        # Dynamic room
         room_group_name = (
             f"chat_"
             f"{min(int(self.sender.id), int(receiver_id))}_"
             f"{max(int(self.sender.id), int(receiver_id))}"
         )
 
-
-        if product_id and owner_id:
-
-            base_data["product_id"] = product_id
-            base_data["owner_id"] = owner_id
-
-        # Send to active chat room
+        # Broadcast to both participants in the active chat room
         await self.channel_layer.group_send(
             room_group_name,
             {
@@ -174,20 +183,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }
         )
 
-        # Send notification to receiver
+        # Keep personal notification for global notifications
         asyncio.create_task(
-            self._async_send_personal(
-                receiver_id,
-                base_data
-            )
+            self._async_send_personal(receiver_id, base_data)
         )
 
-        # Save message
         asyncio.create_task(
-            self._async_save_message(
-                base_data,
-                content
-            )
+            self._async_save_message(base_data, content)
         )
 
     async def _async_send_personal(
@@ -229,7 +231,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 self.save_message(
                     base_data["sender_id"],
                     base_data["receiver_id"],
-                    content
+                    content,
+                    base_data.get("variant_id"),
+                    base_data.get("owner_id")
                 ),
                 return_exceptions=True
             )

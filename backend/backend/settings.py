@@ -352,3 +352,8 @@ WEBPUSH_VAPID_CLAIMS = {"sub": "mailto:jale.official.contact@gmail.com"}
 #     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
 #     'PAGE_SIZE': 5
 # }
+
+PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+
+PAYSTACK_WEBHOOK_SECRET = os.getenv("PAYSTACK_WEBHOOK_SECRET")

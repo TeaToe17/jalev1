@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from "react";
@@ -16,17 +17,12 @@ import {
   User,
   HandCoins,
   ShoppingCart,
+  CreditCard,
+  Bell,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ACCESS_TOKEN } from "@/lib/constant";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
-
-type Message = {
-  sender_id: number;
-  receiver_id: number;
-  text: string;
-  created_at: string;
-};
 
 type ChatPreview = {
   sender: number;
@@ -42,8 +38,10 @@ const Navbar = () => {
   const router = useRouter();
   const pathname = usePathname();
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const {
     globalMessages,
     isLoggedIn,
@@ -57,16 +55,36 @@ const Navbar = () => {
     setMessageTrigger,
     cartCount,
     setChangedCart,
+    clearanceRequired,
   } = useAppContext();
 
   useGlobalListener();
-  usePushNotifications();
+
+  // The hook now knows when the user is logged in.
+  const pushNotifications = usePushNotifications(isLoggedIn);
+
+  const handleEnableNotifications = async () => {
+    const success = await pushNotifications.subscribe();
+
+    if (success) {
+      setMobileMenuOpen(false);
+    }
+  };
+
+  // Only show the enable button when notifications can actually be enabled.
+  const canEnableNotifications =
+    isLoggedIn &&
+    pushNotifications.isSupported &&
+    !pushNotifications.isSubscribed &&
+    typeof Notification !== "undefined" &&  
+    Notification.permission !== "denied";
 
   useEffect(() => {
     if (!isLoggedIn) return;
 
     const loadUser = async () => {
       const data = await fetchUser();
+
       if (data) {
         setCurrentUser(data);
       }
@@ -96,12 +114,12 @@ const Navbar = () => {
     };
   }, [dropdownOpen]);
 
-  // Close mobile menu when route changes
+  // Close mobile menu when route changes.
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  // Fetch chat previews when messageTrigger is true
+  // Fetch chat previews when messageTrigger is true.
   useEffect(() => {
     if (!isLoggedIn) return;
 
@@ -121,23 +139,32 @@ const Navbar = () => {
     };
 
     fetchPreview();
-  }, [isLoggedIn, setChats, setMessageTrigger]);
+  }, [isLoggedIn, messageTrigger, setChats, setMessageTrigger]);
 
-  // Update message count when chats change
+  // Update message count when chats change.
   useEffect(() => {
-    if (chats.length < 1 || !currentUser) return;
+    if (!currentUser) return;
+
+    if (chats.length < 1) {
+      setMessageCount(0);
+      return;
+    }
 
     const user_id = Number(currentUser.id);
 
     const count = chats.reduce((acc, chat) => {
       const sender = Number(chat.actual_sender);
+
       if (sender !== user_id && !!chat.unread) {
         return acc + 1;
       }
+
       return acc;
     }, 0);
+
     console.log("Message count updated");
     console.log(count);
+
     setMessageCount(count);
   }, [chats, currentUser, setMessageCount, globalMessages]);
 
@@ -147,12 +174,18 @@ const Navbar = () => {
 
   const navItems = isLoggedIn ? (
     <>
-      <NavItem href="/" icon={<Home className="w-5 h-5" />} label="Home" />
+      <NavItem
+        href="/"
+        icon={<Home className="w-5 h-5" />}
+        label="Home"
+      />
+
       <NavItem
         href="/requests"
         icon={<HandCoins className="w-5 h-5" />}
         label="Requests"
       />
+
       <NavItem
         href="/cart"
         icon={
@@ -167,6 +200,21 @@ const Navbar = () => {
         }
         label="Cart"
       />
+
+      <NavItem
+        href="/payments"
+        label="Payments"
+        icon={
+          <div className="relative">
+            <CreditCard className="w-5 h-5" />
+
+            {clearanceRequired && (
+              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#1c2b3a] animate-pulse" />
+            )}
+          </div>
+        }
+      />
+
       <NavItem
         href="/messages"
         label="Messages"
@@ -174,6 +222,7 @@ const Navbar = () => {
         icon={
           <div className="relative">
             <MessageSquareMore className="w-5 h-5" />
+
             {messageCount > 0 && (
               <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold px-1 rounded-full">
                 {messageCount}
@@ -182,6 +231,31 @@ const Navbar = () => {
           </div>
         }
       />
+
+      {/* Enable notifications only when the user needs to enable them. */}
+      {canEnableNotifications && (
+        <li>
+          <button
+            type="button"
+            onClick={handleEnableNotifications}
+            disabled={pushNotifications.isLoading}
+            className="flex items-center gap-2 p-2 rounded-md transition-colors hover:bg-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {pushNotifications.isLoading ? (
+              <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Bell className="w-5 h-5" />
+            )}
+
+            <span className="md:hidden">
+              {pushNotifications.isLoading
+                ? "Enabling..."
+                : "Enable Notifications"}
+            </span>
+          </button>
+        </li>
+      )}
+
       <li className="relative">
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -208,6 +282,7 @@ const Navbar = () => {
                   setDropdownOpen(false);
                 }}
               />
+
               <DropdownItem
                 label="Logout"
                 onClick={() => {
@@ -222,12 +297,18 @@ const Navbar = () => {
     </>
   ) : (
     <>
-      <NavItem href="/" icon={<Home className="w-5 h-5" />} label="Home" />
+      <NavItem
+        href="/"
+        icon={<Home className="w-5 h-5" />}
+        label="Home"
+      />
+
       <NavItem
         href="/login"
         label="Login"
         onClick={() => router.push("/login")}
       />
+
       <NavItem
         href="/register"
         label="Register"
@@ -279,9 +360,20 @@ const Navbar = () => {
               ) : (
                 <span className="relative">
                   <Menu className="w-6 h-6" />
-                  {(messageCount > 0 || cartCount > 0) && (
-                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold px-1 rounded-full">
-                      {messageCount + cartCount}
+
+                  {(messageCount > 0 ||
+                    cartCount > 0 ||
+                    clearanceRequired) && (
+                    <span className="absolute -top-1 -right-1 flex items-center gap-1">
+                      {messageCount + cartCount > 0 && (
+                        <span className="bg-red-600 text-white text-[10px] font-bold px-1 rounded-full">
+                          {messageCount + cartCount}
+                        </span>
+                      )}
+
+                      {clearanceRequired && (
+                        <span className="h-2.5 w-2.5 rounded-full bg-orange-400 ring-2 ring-[#1c2b3a] animate-pulse" />
+                      )}
                     </span>
                   )}
                 </span>
@@ -311,7 +403,7 @@ const Navbar = () => {
   );
 };
 
-// Helper components for cleaner code
+// Helper components.
 const NavItem = ({
   href,
   icon,

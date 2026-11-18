@@ -2,9 +2,21 @@
 
 import { ACCESS_TOKEN } from "@/lib/constant";
 import type React from "react";
-import { createContext, useContext, useState, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import api from "@/lib/api";
-import { fetchCartItems, IsUser } from "@/lib/utils";
+import {
+  fetchCartItems,
+  IsUser,
+  getDecodedToken,
+  fetchProducts,
+  calculateMonthlyClickBill,
+} from "@/lib/utils";
 
 // Add these model definitions to your global AppContext workspace
 interface Category {
@@ -105,6 +117,11 @@ type AppContextType = {
   setChangedCart: React.Dispatch<React.SetStateAction<boolean>>;
   setWs: React.Dispatch<React.SetStateAction<WebSocket | null>>;
   ws: WebSocket | null;
+  debt: boolean;
+  setDebt: React.Dispatch<React.SetStateAction<boolean>>;
+  clearanceRequired: boolean;
+  clearanceProductCount: number;
+  refreshClearanceStatus: () => Promise<void>;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -122,6 +139,9 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   const [cartCount, setCartCount] = useState<number>(0);
   const [changedCart, setChangedCart] = useState<boolean>(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [debt, setDebt] = useState(false);
+  const [clearanceRequired, setClearanceRequired] = useState(false);
+  const [clearanceProductCount, setClearanceProductCount] = useState(0);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -168,6 +188,50 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [globalMessages, isLoggedIn]);
 
+  // Fetch compulsory clearance products globally
+  const refreshClearanceStatus = useCallback(async () => {
+    if (!isLoggedIn || !IsUser()) return;
+
+    try {
+      console.log("[CLEARANCE] Checking compulsory clearance products...");
+
+      const decoded = getDecodedToken();
+      const userId = decoded?.CustomUser?.id;
+
+      if (!userId) {
+        console.log("[CLEARANCE] No authenticated user ID found.");
+        return;
+      }
+
+      // Same fetch used by the Payments page
+      const response = await fetchProducts(1, userId, "", null, true);
+
+      // Same compulsory clearance rules used by the Payments page
+      const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+      const dueProducts = response.results.filter((product) => {
+        const billing = calculateMonthlyClickBill(
+          product.chargeable_clicks,
+          product.price,
+        );
+
+        const clearanceExpired =
+          new Date(product.lastclearance).getTime() <= cutoff;
+
+        const isDue = clearanceExpired && billing.monthly_bill >= 1000;
+
+        return isDue;
+      });
+
+      console.log("[CLEARANCE] Compulsory products:", dueProducts);
+
+      setClearanceProductCount(dueProducts.length);
+      setClearanceRequired(dueProducts.length > 0);
+    } catch (error) {
+      console.error("[CLEARANCE] Failed to check clearance status:", error);
+    }
+  }, [isLoggedIn]);
+
   return (
     <AppContext.Provider
       value={{
@@ -195,6 +259,11 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
         setChangedCart,
         setWs,
         ws,
+        setDebt,
+        debt,
+        clearanceRequired,
+        clearanceProductCount,
+        refreshClearanceStatus,
       }}
     >
       {children}

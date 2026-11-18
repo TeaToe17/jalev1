@@ -25,7 +25,7 @@ class WebSocketManager {
 
     //Avoiding unneccesary failed connections and redirects in cases where users were never logged in
     
-    if (!LoggedIn) return;
+    if (!LoggedIn) return null;
     this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {

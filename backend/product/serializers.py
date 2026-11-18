@@ -15,10 +15,11 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class ProductVariantSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
+    product_name = serializers.CharField(source="product.name", read_only=True)
 
     class Meta:
         model = ProductVariant
-        fields = ["id", "price", "stock", "attributes", "negotiable", "used", "imagefile",
+        fields = ["id", "price", "product_name", "stock", "attributes", "negotiable", "used", "imagefile",
          "image", "is_preferred", "created", "sku", "sold", "sizes"]
         extra_kwargs = {
             "created": {"read_only": True},
@@ -32,11 +33,17 @@ class ProductSerializer(serializers.ModelSerializer):
     request = serializers.PrimaryKeyRelatedField(queryset=Request.objects.all(), required=False, allow_null=True)
     categories = serializers.PrimaryKeyRelatedField(many=True, queryset=Category.objects.all())
     variants = ProductVariantSerializer(many=True)
+    owner_whatsapp = serializers.SerializerMethodField()
+
+    def get_owner_whatsapp(self, obj):
+        if obj.variants.filter(price__gte=100000).exists():
+            return obj.owner.whatsapp
+        return None
 
     class Meta:
         model = Product
         fields = ["id", "name", "categories", "owner", "is_sticky", "variants", "preferred_variant",
-                   "sticky_timestamp", "request"]
+                   "sticky_timestamp", "request", "owner_whatsapp"]
         extra_kwargs = {
             "preferred_variant": {"read_only": True},
             "is_sticky": {"read_only": True},
@@ -140,5 +147,5 @@ class ProductListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ["id", "name", "categories", "created", "owner", "is_sticky", "sticky_timestamp",
-                   "price", "image", "sku", "stock", "attributes"]
+                   "price", "image", "sku", "stock", "attributes", "chargeable_clicks", "lastclearance", "cleared"]
 

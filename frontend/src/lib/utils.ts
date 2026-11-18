@@ -4,49 +4,13 @@ import { jwtDecode } from "jwt-decode";
 import { useAppContext } from "@/context";
 import { useEffect, useRef } from "react";
 import { wsManager } from "@/lib/WebSocketManager";
+import { Product, ProductVariant, PaginatedProducts } from "@/types";
 
 type Category = {
   id: number;
   name: string;
   icon: string;
 };
-
-// MATCHES: Backend ProductListSerializer schema with variant proxy typing
-export interface Product {
-  id: number;
-  name: string;
-  categories: Category[]; // Updated: Complete category data structure
-  created: string;
-  owner: number;
-  is_sticky: boolean;
-  sticky_timestamp: string | null;
-
-  // Preferred Variant values flattened automatically onto the object payload
-  price: number | string;
-  image: string;
-  sku: string;
-  stock: number;
-  attributes: Record<string, string | number | null>;
-}
-
-// MATCHES: Full Variant Serializer from Backend
-export interface ProductVariant {
-  id: number;
-  sku: string;
-  price: string | number;
-  stock: number;
-  sizes: string[];
-  attributes: Record<string, string | number | null>;
-  negotiable: boolean;
-  used: boolean;
-  sold: boolean;
-  reserved: boolean;
-  image: string;
-  created: string;
-  datesold: string | null;
-  request: number | null;
-  is_preferred: boolean;
-}
 
 // MATCHES: Detailed view data shape with raw nested variations sub-arrays
 export interface ProductDetailData {
@@ -121,19 +85,12 @@ export const getUser = async (): Promise<CustomUser | null> => {
   }
 };
 
-// High-performance feed listing array data fetcher helper
-interface PaginatedProducts {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: Product[];
-}
-
 export const fetchProducts = async (
   page: number = 1,
   ownerId: string | number | null = null,
   search = "",
   category: number | null = null,
+  highValue?: boolean,
 ): Promise<PaginatedProducts> => {
   try {
     const params = new URLSearchParams();
@@ -146,6 +103,10 @@ export const fetchProducts = async (
 
     if (search) {
       params.append("search", search);
+    }
+
+    if (highValue) {
+      params.append("highValue", String(highValue));
     }
 
     if (category) {
@@ -169,16 +130,21 @@ export const fetchProducts = async (
       next: null,
       previous: null,
       results: [],
+      total_monthly_bill: 0,
     };
   }
 };
 
-// NEW: Hits specialized detail view to load parent data plus child variant options
+// Hits specialized detail view to load parent data plus child variant options
 export const fetchProductDetail = async (
   id: string | number,
+  chargeableClick?: boolean,
 ): Promise<ProductDetailData | null> => {
   try {
-    const res = await api.get<ProductDetailData>(`product/detail/${id}/`);
+    const res = await api.get<ProductDetailData>(`product/detail/${id}/`, {
+      params: chargeableClick !== undefined ? { chargeableClick } : {},
+    });
+
     return res.data || null;
   } catch (error: any) {
     if (error?.response?.status === 401) {
@@ -198,6 +164,21 @@ export const fetchCategories = async (): Promise<Category[]> => {
       throw new Error("Please Login again.");
     }
     return [];
+  }
+};
+
+export const fetchVariantDetail = async (
+  variantId: number,
+): Promise<ProductVariant | null> => {
+  try {
+    const res = await api.get<ProductVariant>(
+      `product/variant/${variantId}/`,
+    );
+
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching variant:", error);
+    return null;
   }
 };
 
@@ -313,11 +294,28 @@ export function useGlobalListener() {
 //   }, [isLoggedIn]);
 // }
 
-export function connectToChat(ws: WebSocket | null, receiverId: number) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return null;
-  ws.send(JSON.stringify({ type: "connect_chat", receiver_id: receiverId }));
-  return ws;
+
+export function connectToChat(ws: WebSocket, receiverId: number) {
+  const joinChat = () => {
+    if (ws.readyState !== WebSocket.OPEN) return;
+
+    ws.send(
+      JSON.stringify({
+        type: "connect_chat",
+        receiver_id: receiverId,
+      })
+    );
+
+    console.log("[WS] Requested chat room connection:", receiverId);
+  };
+
+  if (ws.readyState === WebSocket.OPEN) {
+    joinChat();
+  } else if (ws.readyState === WebSocket.CONNECTING) {
+    ws.addEventListener("open", joinChat, { once: true });
+  }
 }
+
 
 export const getDecodedToken = () => {
   if (typeof window !== "undefined") {
@@ -337,4 +335,49 @@ export function LoggedIn(): boolean {
 export const fetchCartItems = async (): Promise<CartItem[]> => {
   const res = await api.get<CartItem[]>("order/list/cartitem/");
   return res.data || [];
+};
+
+export interface MonthlyClickBill {
+  eligible_clicks: number;
+  product_price: number;
+  cost_per_click: number;
+  monthly_bill: number;
+  currency: "NGN";
+}
+
+export const calculateMonthlyClickBill = (
+  eligibleClicks: number,
+  productPrice: number | string,
+): MonthlyClickBill => {
+  const MIN_CPC = 10;
+  const MAX_CPC = 100;
+  const REFERENCE_PRICE = 25000;
+  const GROWTH_FACTOR = 20;
+
+  const price = Number(productPrice);
+
+  if (!Number.isInteger(eligibleClicks) || eligibleClicks < 0) {
+    throw new Error("Eligible clicks must be a non-negative integer.");
+  }
+
+  if (!Number.isFinite(price) || price <= 0) {
+    throw new Error("Product price must be a positive finite number.");
+  }
+
+  const rawCPC = MIN_CPC + GROWTH_FACTOR * Math.log10(price / REFERENCE_PRICE);
+
+  const cappedCPC = Math.max(MIN_CPC, Math.min(MAX_CPC, rawCPC));
+
+  // Match Python's half-up rounding
+  const costPerClick = Math.floor(cappedCPC + 0.5);
+
+  const monthlyBill = eligibleClicks * costPerClick;
+
+  return {
+    eligible_clicks: eligibleClicks,
+    product_price: price,
+    cost_per_click: costPerClick,
+    monthly_bill: monthlyBill,
+    currency: "NGN",
+  };
 };

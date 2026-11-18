@@ -123,7 +123,6 @@ def save_subscription(request):
         }, status=500)
 
 class ListMessagesView(generics.ListAPIView):
-    # serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated]
 
     def get(self, request, user_id):

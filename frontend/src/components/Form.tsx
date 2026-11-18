@@ -90,8 +90,9 @@ const Form = ({ route, method }: FormProps) => {
       if (!whatsapp) {
         errors.whatsapp = "WhatsApp number is required";
         isValid = false;
-      } else if (!/^\d{10,15}$/.test(whatsapp)) {
-        errors.whatsapp = "Please enter a valid phone number";
+      } else if (!/^234\d{10}$/.test(whatsapp)) {
+        errors.whatsapp =
+          "Enter a valid WhatsApp number in international format (234XXXXXXXXXX)";
         isValid = false;
       }
 
@@ -351,14 +352,21 @@ const Form = ({ route, method }: FormProps) => {
                   <input
                     id="whatsapp"
                     type="tel"
+                    inputMode="numeric"
+                    maxLength={13}
                     value={whatsapp ?? ""}
                     onChange={(e) => {
-                      setWhatsapp(e.target.value);
+                      const value = e.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 13);
+
+                      setWhatsapp(value);
+
                       if (formErrors.whatsapp) {
                         setFormErrors({ ...formErrors, whatsapp: "" });
                       }
                     }}
-                    placeholder="Enter your WhatsApp number"
+                    placeholder="234XXXXXXXXXX"
                     className={`w-full px-4 py-2 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1c2b3a] transition-colors ${
                       formErrors.whatsapp ? "border-red-500" : "border-gray-300"
                     }`}

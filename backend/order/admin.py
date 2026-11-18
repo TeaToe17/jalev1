@@ -16,7 +16,6 @@ class OrderAdmin(admin.ModelAdmin):
     def get_sku(self, obj):
         return obj.variant.sku if obj.variant else "N/A"
 
-
 @admin.register(CartItem)
 class CartItemAdmin(admin.ModelAdmin):
     list_display = ["owner", "get_product_name", "get_sku", "quantity", "size", "timestamp"]

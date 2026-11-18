@@ -38,6 +38,7 @@ interface ProductDetailData {
   categories: Category[];
   created: string;
   owner: number;
+  owner_whatsapp?: string;
   is_sticky: boolean;
   sticky_timestamp: string | null;
   variants: ProductVariant[];
@@ -82,6 +83,7 @@ const ProductClientComponent = () => {
   const [message, setMessage] = useState<Message | null>(null);
 
   // FIXED: variant-specific cart tracking
+  const [showTransactionNotice, setShowTransactionNotice] = useState(true);
   const [cartClickedVariants, setCartClickedVariants] = useState<number[]>([]);
   const normalizeSizes = (sizes: string[] | null | undefined): string[] => {
     if (!sizes?.length) return [];
@@ -112,7 +114,7 @@ const ProductClientComponent = () => {
         setIsLoading(true);
 
         try {
-          const data = await fetchProductDetail(Number(id));
+          const data = await fetchProductDetail(Number(id), true);
 
           if (data) {
             const normalizedData = {
@@ -204,7 +206,6 @@ const ProductClientComponent = () => {
 
       setChangedCart(true);
 
-
       setMessage({
         type: "success",
         text: "Variant added to cart successfully!",
@@ -215,9 +216,35 @@ const ProductClientComponent = () => {
   };
 
   const HandleNegotiation = (receiverId: number) => {
-    if (product && receiverId) {
-      setCurrentProduct(product);
+    if (!product || !selectedVariant) return;
 
+    const variantPrice = Number(selectedVariant.price);
+
+    // High-value products: negotiate directly on WhatsApp
+    if (product.owner_whatsapp && variantPrice > 100000) {
+      const message = `Hello, I saw your product "${product.name}" on JALE and I'm interested in negotiating the price.
+
+        Selected ${
+          Object.entries(selectedVariant.attributes || {})
+            .map(([key, value]) => `${key.replace(/_/g, " ")}: ${value}`)
+            .join(", ") || "Default variation"
+        }
+        Current Price: ₦${variantPrice.toLocaleString("en-NG")}
+
+        I would like to discuss the price. Thank you.`;
+
+      const whatsappNumber = product.owner_whatsapp.replace(/\D/g, "");
+
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+
+      return;
+    }
+
+    // Normal products: use JAle's internal chat
+    if (receiverId) {
+      setCurrentProduct(product);
       router.push(`/chat/${receiverId}`);
     }
   };
@@ -263,6 +290,10 @@ const ProductClientComponent = () => {
       : selectedVariant.price;
 
   const isProductOwner = product.owner === Number(currentUser?.id);
+  const isHighValueProduct = activePrice >= 100000;
+
+  const usesWhatsAppNegotiation =
+    isHighValueProduct && !!product.owner_whatsapp;
 
   return (
     <>
@@ -564,6 +595,85 @@ const ProductClientComponent = () => {
 
               {/* ACTION BUTTONS */}
               <div className="mt-6 space-y-4">
+                {/* HIGH-VALUE PRODUCT WARNING */}
+                {!isProductOwner &&
+                  usesWhatsAppNegotiation &&
+                  showTransactionNotice && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle
+                          size={18}
+                          className="text-amber-600 flex-shrink-0 mt-0.5"
+                        />
+
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold text-amber-800 mb-1">
+                            Important: Shop Safely
+                          </h4>
+
+                          <p className="text-xs text-amber-800 leading-relaxed">
+                            If you will be contacting the seller directly on
+                            WhatsApp, please exercise caution when making
+                            payments. Where possible, arrange to meet the seller
+                            and inspect the product before making payment.
+                          </p>
+
+                          <p className="text-xs text-amber-800 leading-relaxed mt-2">
+                            JAle does not facilitate or guarantee transactions
+                            made outside the platform and is not responsible for
+                            scams, fraudulent transfers, or disputes arising
+                            from them. Agree on a safe payment and delivery
+                            arrangement with the seller before proceeding.
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowTransactionNotice(false)}
+                          aria-label="Dismiss safety notice"
+                          className="text-amber-600 hover:text-amber-900 hover:bg-amber-100 rounded-full p-1 transition flex-shrink-0"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                {/* REGULAR PRODUCT NOTICE */}
+                {!isProductOwner &&
+                  !isHighValueProduct &&
+                  showTransactionNotice && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle
+                          size={18}
+                          className="text-green-600 flex-shrink-0 mt-0.5"
+                        />
+
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold text-green-800 mb-1">
+                            Shop with Confidence
+                          </h4>
+
+                          <p className="text-xs text-green-800 leading-relaxed">
+                            Keep your negotiations within JALE. Regular products
+                            follow our payment-on-delivery arrangement, so you
+                            can inspect your purchase before making payment.
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowTransactionNotice(false)}
+                          aria-label="Dismiss shopping notice"
+                          className="text-green-600 hover:text-green-900 hover:bg-green-100 rounded-full p-1 transition flex-shrink-0"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                 {selectedVariant.stock < 1 ? (
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-medium">
                     This variation selection option is currently out of stock.
@@ -601,7 +711,7 @@ const ProductClientComponent = () => {
                     )}
 
                     {/* NEGOTIATE */}
-                    {selectedVariant.negotiable && (
+                    {selectedVariant.negotiable ? (
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -610,6 +720,28 @@ const ProductClientComponent = () => {
                       >
                         Negotiate Price
                       </motion.button>
+                    ) : usesWhatsAppNegotiation &&
+                      selectedVariant.negotiable ? (
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => HandleNegotiation(product.owner)}
+                        className="flex-1 bg-gradient-to-r from-[#fcecd8] to-[#fcecd8] text-[#1c2b3a] px-6 py-3 rounded-lg shadow border border-[#1c2b3a]/20 font-medium text-sm"
+                      >
+                        Negotiate Price
+                      </motion.button>
+                    ) : (
+                      usesWhatsAppNegotiation &&
+                      !selectedVariant.negotiable && (
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => HandleNegotiation(product.owner)}
+                          className="flex-1 bg-gradient-to-r from-[#fcecd8] to-[#fcecd8] text-[#1c2b3a] px-6 py-3 rounded-lg shadow border border-[#1c2b3a]/20 font-medium text-sm"
+                        >
+                          Contact Seller
+                        </motion.button>
+                      )
                     )}
                   </div>
                 )}

@@ -50,11 +50,11 @@ const Profile = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [categories, setCategories] = useState<{ id: number; name: string }[]>(
-    []
+    [],
   );
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [categoryNames, setCategoryNames] = useState<{ [key: number]: string }>(
-    {}
+    {},
   );
   const [message, setMessage] = useState<Message | null>(null);
   const [copied, setCopied] = useState(false);
@@ -120,7 +120,7 @@ const Profile = () => {
 
     try {
       await navigator.clipboard.writeText(
-        `https://jale.vercel.app/register/?ref=${user.username}`
+        `https://jale.vercel.app/register/?ref=${user.username}`,
       );
       setCopied(true);
       setMessage({
@@ -149,9 +149,9 @@ const Profile = () => {
     const body = `Hi there!\n\nI'd love to invite you to join this amazing platform I've been using. Use my referral link to get started:\n\nhttps://jale.vercel.app/register/?ref=${user.username}\n\nYou'll get special benefits when you sign up through my link!\n\nBest regards`;
     window.open(
       `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(
-        body
+        body,
       )}`,
-      "_blank"
+      "_blank",
     );
   };
 
@@ -160,7 +160,7 @@ const Profile = () => {
     const text = `🚀 Just discovered this amazing platform! Join me using my referral link: https://jale.vercel.app/register/?ref=${user.username} #referral #community`;
     window.open(
       `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
-      "_blank"
+      "_blank",
     );
   };
 
@@ -338,11 +338,11 @@ const Profile = () => {
                       </div>
                       <div>
                         <h3 className="text-lg font-bold text-gray-900">
-                          Referral & Rewards
+                          Grow Your Reach, Earn Rewards.
                         </h3>
-                        <p className="text-xs text-red-600">
-                          Stick your product up top for 120 mins – just hit
-                          share 🔗{" "}
+                        <p className="text-xs text-gray-600">
+                          Share your link, earn referral points, and give your
+                          products a 2-hour visibility boost.
                         </p>
                       </div>
                     </div>
@@ -555,8 +555,8 @@ const Profile = () => {
                       onChange={(e) =>
                         setSelectedCategories(
                           Array.from(e.target.selectedOptions).map((opt) =>
-                            Number(opt.value)
-                          )
+                            Number(opt.value),
+                          ),
                         )
                       }
                       className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1c2b3a] focus:border-transparent min-h-[100px]"

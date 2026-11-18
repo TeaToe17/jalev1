@@ -12,9 +12,9 @@ import {
 } from "lucide-react";
 import {
   connectToChat,
-  fetchProductDetail,
   fetchUser,
   LoggedIn,
+  fetchVariantDetail,
 } from "@/lib/utils";
 import api from "@/lib/api";
 import { useAppContext } from "@/context";
@@ -28,6 +28,8 @@ interface ApiMessage {
   content: string;
   sender: number | string;
   timestamp: string;
+  variant_id?: number;
+  owner_id?: number;
 }
 
 // MATCHES: Global Context Detail Schema
@@ -144,6 +146,7 @@ const PendingMessageItem = React.memo(
     </div>
   ),
 );
+
 PendingMessageItem.displayName = "PendingMessageItem";
 
 const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
@@ -215,51 +218,43 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
     };
   }, [currentProduct]);
 
-  useEffect(() => {
-    if (!isHydrated) return;
-    const storedVariantId = localStorage.getItem("variantId");
-    if (storedVariantId) {
-      const loadVariantMetadata = async () => {
-        try {
-          // Retrieve detailed information from endpoint containing structural variation components
-          const response = await api.get(`product/list/`); // or query via variant details lookup endpoint
-          const catalog: any[] = response.data || [];
+  const loadVariantMetadata = async (id: number) => {
+    console.log("[VARIANT] Fetching variant:", id);
 
-          // Traverse structural catalog down to target variation card metrics matching ID
-          let foundVariant: any = null;
-          let parentName = "Negotiated Variant Item";
+    try {
+      const variant = await fetchVariantDetail(id);
 
-          if (
-            currentProduct &&
-            currentProduct.variants?.some(
-              (v) => v.id === Number(storedVariantId),
-            )
-          ) {
-            foundVariant = currentProduct.variants.find(
-              (v) => v.id === Number(storedVariantId),
-            );
-            parentName = currentProduct.name;
-          }
+      console.log("[VARIANT] API response:", variant);
 
-          if (foundVariant) {
-            const vPrice =
-              typeof foundVariant.price === "string"
-                ? parseFloat(foundVariant.price)
-                : foundVariant.price;
-            setVariantDetails({
-              variantImage: foundVariant.image || "",
-              variantName: `${parentName}`,
-              variantPrice: vPrice || 0,
-              variantSku: foundVariant.sku || "",
-            });
-          }
-        } catch (err) {
-          console.error("Error hydration loading metadata details:", err);
-        }
-      };
-      loadVariantMetadata();
+      if (!variant) {
+        console.warn("[VARIANT] No variant returned for ID:", id);
+        return;
+      }
+
+      const price =
+        typeof variant.price === "string"
+          ? parseFloat(variant.price)
+          : variant.price;
+
+      setVariantDetails({
+        variantImage: variant.image || "",
+        variantName: variant.product_name || "",
+        variantPrice: price || 0,
+        variantSku: variant.sku || "",
+      });
+
+      console.log("[VARIANT] Details successfully updated.");
+    } catch (error) {
+      console.error("[VARIANT] Failed to fetch variant:", error);
     }
-  }, [isHydrated, variantId, currentProduct]);
+  };
+
+  // Handles the initial variant context when the page loads.
+  useEffect(() => {
+    if (!isHydrated || !variantId) return;
+
+    loadVariantMetadata(Number(variantId));
+  }, [isHydrated, variantId]);
 
   const fetchHistory = async () => {
     setIsLoading(true);
@@ -273,9 +268,27 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
           sender_id: msg.sender,
           created_at: formatTime(msg.timestamp || ""),
           timestamp: msg.timestamp,
+          variant_id: msg.variant_id,
+          owner_id: msg.owner_id,
         }));
+
         setMessages(formattedMessage);
-        localStorage.setItem("messages", JSON.stringify(formattedMessage));
+
+        // Recover the latest negotiation context from chat history
+        const negotiationMessage = [...resDict]
+          .reverse()
+          .find((msg: ApiMessage) => msg.variant_id && msg.owner_id);
+
+        if (negotiationMessage) {
+          setVariantId(negotiationMessage.variant_id!);
+          setOwnerId(negotiationMessage.owner_id!);
+
+          localStorage.setItem(
+            "variantId",
+            String(negotiationMessage.variant_id),
+          );
+          localStorage.setItem("ownerId", String(negotiationMessage.owner_id));
+        }
       }
       const user = await fetchUser();
       setCurrentUser(user);
@@ -303,12 +316,31 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
   }, [receiverId, ws]);
 
   useEffect(() => {
+    console.log("[VARIANT] Current variant details:", variantDetails);
+  }, [variantDetails]);
+
+  useEffect(() => {
+    console.log("[VARIANT] Current variant Id:", variantId);
+  }, [variantId]);
+
+  useEffect(() => {
     if (!receiverId || !LoggedIn()) return;
     if (!ws) return;
     connectToChat(ws, receiverId);
 
     const handleMessage = (e: MessageEvent) => {
       const data = JSON.parse(e.data);
+      console.log(data);
+
+      if (data.variant_id && data.owner_id) {
+        setVariantId(data.variant_id);
+        setOwnerId(data.owner_id);
+        localStorage.setItem("variantId", String(data.variant_id));
+        localStorage.setItem("ownerId", String(data.owner_id));
+      }
+
+      if (data.scope !== "group") return;
+
       if (data.text && data.sender_id !== undefined) {
         setPendingMessages((prev) =>
           prev.filter(
@@ -333,13 +365,6 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
           localStorage.setItem("messages", JSON.stringify(updated));
           return updated;
         });
-      }
-
-      if (data.variant_id && data.owner_id) {
-        setVariantId(data.variant_id);
-        setOwnerId(data.owner_id);
-        localStorage.setItem("variantId", String(data.variant_id));
-        localStorage.setItem("ownerId", String(data.owner_id));
       }
 
       const pattern = /^The transaction has been confirmed at (\d+)$/i;
@@ -588,39 +613,6 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
         )}
       </AnimatePresence>
 
-      {/* DYNAMIC VARIATION NEGOTIATION HEADS UP SUB-BAR DISPLAY */}
-      {variantDetails.variantName && showDiv && (
-        <div className="bg-white p-3 border-b border-gray-200 flex items-center justify-between shadow-sm animate-fadeIn">
-          <div className="flex items-center gap-3">
-            <div className="relative h-12 w-12 rounded overflow-hidden border bg-gray-50 flex-shrink-0">
-              <img
-                src={variantDetails.variantImage || "/placeholder.svg"}
-                alt="Item Face"
-                className="object-cover h-full w-full"
-              />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-[#1c2b3a]/60">
-                Negotiating Variant
-              </p>
-              <h4 className="text-sm font-bold text-gray-900 line-clamp-1">
-                {variantDetails.variantName}
-              </h4>
-              <p className="text-xs font-semibold text-red-500">
-                Base Price: ₦{variantDetails.variantPrice.toLocaleString()}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowDiv(false)}
-            className="text-gray-400 hover:text-gray-600 p-1"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
-
       <AnimatePresence>
         {error && error !== "This input is not allowed." && (
           <motion.div
@@ -700,6 +692,43 @@ const ChatWindow: React.FC<ChatProps> = ({ receiverId }) => {
               </>
             )}
           </motion.button>
+        </div>
+      )}
+
+      {/* NEGOTIATING VARIANT BAR */}
+      {variantDetails.variantName && (
+        <div className="w-full flex items-center gap-3 px-4 py-2 bg-white border-t border-gray-200 shadow-sm flex-shrink-0">
+          {/* Variant Image */}
+          <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex-shrink-0">
+            <img
+              src={variantDetails.variantImage || "/placeholder.svg"}
+              alt={variantDetails.variantName}
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          {/* Variant Details */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Negotiating Variant
+            </p>
+
+            <p className="text-sm font-bold text-gray-900 truncate">
+              {variantDetails.variantName}
+            </p>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs font-semibold text-red-600">
+                ₦{variantDetails.variantPrice.toLocaleString()}
+              </p>
+
+              {variantDetails.variantSku && (
+                <p className="text-[10px] text-gray-400 truncate">
+                  SKU: {variantDetails.variantSku}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

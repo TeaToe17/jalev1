@@ -25,7 +25,8 @@ class Message(models.Model):
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
     read = models.BooleanField(default=False, blank=True)
-
+    variant_id = models.PositiveBigIntegerField(null=True, blank=True)
+    owner_id = models.PositiveBigIntegerField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if self._state.adding:  # only on create
@@ -34,7 +35,6 @@ class Message(models.Model):
 
     def __str__(self):
         return f"{self.content}-{self.timestamp}-{self.read}-{self.id}"
-
 
 class ChatPreview(models.Model):
     sender = models.ForeignKey("user.CustomUser", on_delete=models.CASCADE, related_name="sender_previews")

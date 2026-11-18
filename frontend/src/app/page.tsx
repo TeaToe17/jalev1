@@ -12,33 +12,18 @@ import {
   Zap,
   Star,
   Crown,
+  X,
 } from "lucide-react";
 import { fetchProducts, fetchCategories } from "@/lib/utils";
 import { AxiosError } from "axios";
 import { useAppContext } from "@/context";
+import { Product } from "@/types";
 
 // MATCHES: Backend ProductListSerializer structure
 interface Category {
   id: number;
   name: string;
   icon: string;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  categories: Category[]; // Updated: Object array from CategorySerializer
-  created: string;
-  owner: number;
-  is_sticky: boolean;
-  sticky_timestamp: string | null;
-
-  // Flattened properties from preferred_variant
-  price: number | string;
-  image: string;
-  sku: string;
-  stock: number;
-  attributes: Record<string, string | number | null>;
 }
 
 const banners = [
@@ -80,8 +65,23 @@ export default function Home() {
   const [currentBanner, setCurrentBanner] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const bannerInterval = useRef<NodeJS.Timeout | null>(null);
-  const { isLoggedIn } = useAppContext();
+  const {
+    isLoggedIn,
+    clearanceRequired,
+    clearanceProductCount,
+    refreshClearanceStatus,
+  } = useAppContext();
+
+  const [clearanceNoticeDismissed, setClearanceNoticeDismissed] =
+    useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+
+  // Trigger global clearance check whenever the homepage is visited
+  useEffect(() => {
+    if (isLoggedIn) {
+      refreshClearanceStatus();
+    }
+  }, [isLoggedIn, refreshClearanceStatus]);
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -188,6 +188,44 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#f8f9fa]">
+      {/* Global compulsory clearance announcement */}
+      {isLoggedIn && clearanceRequired && !clearanceNoticeDismissed && (
+        <div className="relative overflow-hidden bg-orange-600 text-white py-3 px-10">
+          <motion.div
+            animate={{ x: ["100%", "-100%"] }}
+            transition={{
+              duration: 18,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+            className="whitespace-nowrap text-sm font-medium"
+          >
+            ⚠️ You have {clearanceProductCount} product
+            {clearanceProductCount !== 1 ? "s" : ""} delisted pending clearance.
+            Clear your outstanding bill to get your products listed again. Click
+            to proceed.
+          </motion.div>
+
+          {/* Navigate to payments */}
+          <button
+            type="button"
+            onClick={() => router.push("/payments")}
+            className="absolute inset-0 z-10"
+            aria-label="Go to payments"
+          />
+
+          {/* Dismiss announcement */}
+          <button
+            type="button"
+            onClick={() => setClearanceNoticeDismissed(true)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-20
+          rounded-full bg-white/20 hover:bg-white/30 p-1"
+            aria-label="Dismiss clearance announcement"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
       <div className="sticky top-0 z-10 bg-gradient-to-r from-[#fcecd8] to-[#1c2b3a] p-4 shadow-md">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-4">
           <div className="flex items-center w-full md:w-auto">
@@ -591,7 +629,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           >
             ₦{numericPrice ? numericPrice.toLocaleString() : "0"}
           </p>
-          {product.stock > 0 ? (  
+          {product.stock > 0 ? (
             <span
               className={`text-xs px-2 py-1 rounded-full ${product.is_sticky ? "text-green-700 bg-gradient-to-r from-green-100 to-emerald-100 border border-green-200 shadow-sm" : "text-green-600 bg-green-100"}`}
             >
@@ -606,6 +644,6 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           )}
         </div>
       </div>
-    </motion.div>  
+    </motion.div>
   );
 }
