@@ -27,7 +27,7 @@ type Stage = "ios-install" | "enable" | "denied";
 
 type Browser = "safari" | "chrome" | "other";
 
-const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000;
+const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000;  // 7 days
 
 const NotificationOnboarding = ({
   enabled,
@@ -169,7 +169,7 @@ const NotificationOnboarding = ({
               </div>
 
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-lime-300">
-                Stay connected with JAle
+                Stay connected with Jale
               </p>
 
               <h2
@@ -177,7 +177,7 @@ const NotificationOnboarding = ({
                 className="text-2xl font-bold leading-tight"
               >
                 {stage === "ios-install"
-                  ? "Take JAle wherever you go."
+                  ? "Take Jale wherever you go."
                   : stage === "denied"
                     ? "Let's turn notifications back on."
                     : "Don't miss your next deal."}
@@ -185,7 +185,7 @@ const NotificationOnboarding = ({
 
               <p className="mt-3 text-sm leading-relaxed text-white/75">
                 {stage === "ios-install"
-                  ? "Add JAle to your Home Screen so you can receive important messages and updates."
+                  ? "Add Jale to your Home Screen so you can receive important messages and updates."
                   : stage === "denied"
                     ? "Notifications are currently blocked. You can change this in your device settings."
                     : "Get notified when buyers message you, sellers respond, or someone is interested in your products."}
@@ -213,7 +213,7 @@ const NotificationOnboarding = ({
                   <div>
                     <div className="mb-4 flex items-center justify-between">
                       <h3 className="font-bold">
-                        Add JAle to your Home Screen
+                        Add Jale to your Home Screen
                       </h3>
                       <span className="text-xs text-slate-500">
                         3 easy steps
@@ -259,7 +259,7 @@ const NotificationOnboarding = ({
                           <Step
                             number="3"
                             title="Tap Add"
-                            description="Confirm to place JAle on your Home Screen."
+                            description="Confirm to place Jale on your Home Screen."
                             icon={<PlusSquare size={21} />}
                           />
                         </>
@@ -280,7 +280,7 @@ const NotificationOnboarding = ({
                           <Step
                             number="3"
                             title="Confirm by tapping Add"
-                            description="JAle will now appear on your Home Screen."
+                            description="Jale will now appear on your Home Screen."
                             icon={<PlusSquare size={21} />}
                           />
                         </>
@@ -291,9 +291,9 @@ const NotificationOnboarding = ({
                   <div className="rounded-xl border border-slate-200 p-4">
                     <p className="text-sm font-semibold">One last thing!</p>
                     <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                      After adding JAle, close your browser and open JAle using
+                      After adding Jale, close your browser and open Jale using
                       the new icon on your Home Screen. Then enable
-                      notifications inside JAle.
+                      notifications inside Jale.
                     </p>
                   </div>
                 </>
@@ -353,7 +353,7 @@ const NotificationOnboarding = ({
                   <div className="flex gap-3 rounded-xl bg-amber-50 p-4">
                     <Settings className="shrink-0 text-amber-700" size={22} />
                     <p className="text-sm leading-relaxed text-slate-700">
-                      Open your device settings, find JAle or your browser under
+                      Open your device settings, find Jale or your browser under
                       Notifications, and allow notifications.
                     </p>
                   </div>

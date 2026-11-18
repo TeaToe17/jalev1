@@ -45,24 +45,26 @@ class ProductCreateView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         user = request.user
-        cutoff = now() - timedelta(days=30)
+        cutoff = timezone.now() - timedelta(days=30)
         MINIMUM_BILL = 1000
 
-        # Fetch only overdue, uncleared high-risk products
         overdue_products = Product.objects.filter(
             owner=user,
             cleared=False,
             delist=True,
             lastclearance__lte=cutoff,
             preferred_variant__price__gte=100000,
-        ).select_related("preferred_variant")
+        ).values_list(
+            "chargeable_clicks",
+            "preferred_variant__price",
+        )
 
         clearance_required = False
 
-        for product in overdue_products.iterator():
+        for chargeable_clicks, product_price in overdue_products:
             result = calculate_monthly_click_bill(
-                eligible_clicks=product.chargeable_clicks,
-                product_price=product.preferred_variant.price,
+                eligible_clicks=int(chargeable_clicks or 0),
+                product_price=float(product_price),
             )
 
             if result["bill"] >= MINIMUM_BILL:
@@ -146,14 +148,16 @@ class ProductListView(generics.ListAPIView):
             )
 
             # Calculate the total bill for products meeting BOTH conditions
-            for product in billing_products.iterator():
-                if product.chargeable_clicks:
+            for chargeable_clicks, product_price in billing_products.values_list(
+                "chargeable_clicks",
+                "preferred_variant__price",
+            ):
+                if chargeable_clicks and product_price:
                     result = calculate_monthly_click_bill(
-                        eligible_clicks=product.chargeable_clicks,
-                        # dont use preffered variant price blindly, usevactual oe that exceeds, even on frontend check for this fix
-                        product_price=float(product.preferred_variant.price),
+                        eligible_clicks=chargeable_clicks,
+                        product_price=float(product_price),
                     )
-                    print(result)
+
                     bill = result["bill"]
 
                     if bill >= 1000:
@@ -221,32 +225,36 @@ class ProductListView(generics.ListAPIView):
 
 
     def delist_expired_high_risk_products(self):
-        cutoff = now() - timedelta(days=30)
+        cutoff = timezone.now() - timedelta(days=30)
         MINIMUM_BILL = 1000  # ₦1,000
 
-        # Only fetch high-risk products whose 30-day clearance period has elapsed
         expired_products = Product.objects.filter(
             lastclearance__lte=cutoff,
             delist=False,
             preferred_variant__price__gte=100000,
-        ).select_related("preferred_variant")
+        ).values_list(
+            "id",
+            "chargeable_clicks",
+            "preferred_variant__price",
+        )
 
         products_to_delist = []
 
-        for product in expired_products.iterator():
-            print(product.chargeable_clicks)
-            print(product.preferred_variant.price)
+        for product_id, chargeable_clicks, product_price in expired_products:
+
+            if not product_price:
+                continue
+
             result = calculate_monthly_click_bill(
-                eligible_clicks=int(product.chargeable_clicks),
-                product_price=int(product.preferred_variant.price),
+                eligible_clicks=int(chargeable_clicks or 0),
+                product_price=int(product_price),
             )
 
             bill = result["bill"]
 
             if bill >= MINIMUM_BILL:
-                products_to_delist.append(product.id)
+                products_to_delist.append(product_id)
 
-        # Delist only products that have reached the minimum bill
         if products_to_delist:
             return Product.objects.filter(
                 id__in=products_to_delist
