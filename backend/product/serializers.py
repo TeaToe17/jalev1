@@ -48,13 +48,15 @@ class ProductSerializer(serializers.ModelSerializer):
             "preferred_variant": {"read_only": True},
             "is_sticky": {"read_only": True},
             "sticky_timestamp": {"read_only": True},
+            "owner": {"read_only": True},
         }
 
     def create(self, validated_data):
         categories_data = validated_data.pop("categories", [])
         variants_data = validated_data.pop("variants", [])
+        owner = self.context["request"].user
         with transaction.atomic():
-            product = Product.objects.create(**validated_data)
+            product = Product.objects.create(owner=owner, **validated_data)
             product.categories.set(categories_data)
             created_variants = []
             for variant_data in variants_data:

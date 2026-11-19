@@ -8,6 +8,7 @@ import { Inter } from "next/font/google";
 import type { Metadata } from "next";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "Jale – Buy. Sell. Flex.",
@@ -72,6 +73,7 @@ const RootLayout = ({ children }: RootLayoutProps) => (
         <Navbar />
         {children}
         <Footer />
+        <Analytics />
       </AppWrapper>
     </body>
   </html>
